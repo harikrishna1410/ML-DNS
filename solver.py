@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 import torch.nn.functional as F
 from mpi4py import MPI
 from transport_properties import compute_transport_properties
@@ -6,6 +7,9 @@ from reaction_source_terms import compute_reaction_source_terms
 from boundary_conditions import apply_boundary_conditions
 from derivatives import Derivatives
 from grid import Grid
+from params import SimulationParameters
+from data import SimulationData
+import json
 
 class NavierStokesSolver:
     def __init__(self, global_grid_size, dt, dx, num_species):
@@ -13,47 +17,24 @@ class NavierStokesSolver:
         self.rank = self.comm.Get_rank()
         self.size = self.comm.Get_size()
 
-        # Divide the global grid among processes
-        self.local_grid_size = [gs // self.size for gs in global_grid_size]
-        self.dt = dt
-        self.dx = dx
-        self.num_species = num_species
+        # Initialize simulation parameters
 
-        # Initialize local state tensors
-        self.velocity = torch.zeros((3, *self.local_grid_size), dtype=torch.float32)
-        self.pressure = torch.zeros(self.local_grid_size, dtype=torch.float32)
-        self.temperature = torch.zeros(self.local_grid_size, dtype=torch.float32)
-        self.species = torch.zeros((num_species, *self.local_grid_size), dtype=torch.float32)
-
-        # Initialize ghost cells for halo exchange
-        self.ghost_cells = 4  # For 8th order stencil
-        self.padded_grid_size = [gs + 2 * self.ghost_cells for gs in self.local_grid_size]
+        json_file = 'simulation_params.json'  # Assuming the JSON file is named this way
+        with open(json_file, 'r') as f:
+            params = json.load(f)
+        topo = params.get('topology', [1, 1, 1])
+        if self.size != topo[0] * topo[1] * topo[2]:
+            raise ValueError(f"MPI size {self.size} does not match topology {topo}")
+        
+        self.my_pidx = tuple(np.unravel_index(self.rank, topo))
+        self.params = SimulationParameters(json_file, topo, self.my_pidx)
         
         # Initialize grid object
-        self.grid = Grid(global_grid_size, self.local_grid_size, dx)
-        
+        self.grid = Grid(self.params, self.my_pidx)
+        # Initialize simulation data object
+        self.data = SimulationData(self.params)
         # Initialize derivatives object with grid
         self.derivatives = Derivatives(self.grid)
-
-    def exchange_halo(self, state):
-        """
-        Perform halo exchange for the entire state.
-        
-        This method exchanges ghost cells with neighboring processes to ensure
-        correct computation of derivatives near process boundaries.
-        
-        Args:
-        state (tuple): Current state (velocity, pressure, temperature, species)
-        
-        Returns:
-        tuple: (left_halo, right_halo, updated_state)
-        """
-        # Implement MPI halo exchange here
-        # This is a placeholder and needs to be implemented based on your specific MPI setup
-        state_tensor = torch.cat([state[0], state[1].unsqueeze(0), state[2].unsqueeze(0), state[3]], dim=0)
-        left_halo = torch.zeros((state_tensor.shape[0], 4, *state_tensor.shape[2:]))
-        right_halo = torch.zeros((state_tensor.shape[0], 4, *state_tensor.shape[2:]))
-        return left_halo, right_halo, state
 
     def compute_rhs(self, state):
         velocity, pressure, temperature, species = state

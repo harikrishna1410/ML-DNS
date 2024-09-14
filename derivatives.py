@@ -1,9 +1,14 @@
 import torch
 import torch.nn.functional as F
+from haloexchange import HaloExchange
+from grid import Grid
+from data import SimulationData
 
 class Derivatives:
-    def __init__(self, grid):
+    def __init__(self, grid : Grid, halo_exchange: HaloExchange,sim_data : SimulationData):
         self.grid = grid
+        self.halo_exchange = halo_exchange
+        self.sim_data = sim_data
 
     def central_difference(self, tensor, axis, left_padding, right_padding, stencil=None):
         """
@@ -80,4 +85,17 @@ class Derivatives:
         Returns:
         tuple of torch.Tensor: Gradient of the input tensor along all axes
         """
-        return tuple(self.central_difference(tensor, axis=i, left_padding=left_padding, right_padding=right_padding, stencil=stencil) for i in range(3))
+        ##start the transfer
+        self.halo_exchange.Iexchange(tensor)
+        ret = []
+        for dim in range(self.grid.ndim):
+            self.halo_exchange.wait_dim(dim)
+            df = self.central_difference(tensor, 
+                                        axis=dim,
+                                        left_padding=self.sim_data.halos[['x', 'y', 'z'][dim]][0],
+                                        right_padding=self.sim_data.halos[['x', 'y', 'z'][dim]][1],
+                                        stencil=stencil)
+            ret.append(df)
+        self.sim_data.zero_halos()
+        return tuple(ret)
+        
