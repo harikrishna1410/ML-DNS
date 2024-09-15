@@ -1,0 +1,53 @@
+import torch
+import torch.nn as nn
+
+class Integrator:
+
+    def __init__(self, dt, method="rk4", use_nn=False, neural_integrator=None):
+        self.dt = dt
+        self.neural_integrator = neural_integrator
+        self.use_nn = use_nn
+        self.set_method(method)
+    ##
+    def set_method(self, method):
+        if method == "rk4":
+            self.integrator = self.rk4
+        elif method == "euler":
+            self.integrator = self.euler
+        else:
+            raise ValueError(f"Unsupported integration method: {method}")
+
+    def integrate(self, x, rhs):
+        return self.integrator(x, rhs)
+
+    def set_dt(self, dt):
+        self.dt = dt
+
+    def set_neural_integrator(self, neural_integrator):
+        self.neural_integrator = neural_integrator
+    
+    def get_use_nn(self):
+        return self.use_nn
+
+    def set_use_nn(self, value: bool):
+        self.use_nn = value
+
+    def toggle_use_nn(self):
+        self.use_nn = not self.use_nn
+
+    def euler(self, x, rhs):
+        if self.use_nn and self.neural_integrator:
+            return self.neural_integrator(x)
+        return x + self.dt * rhs(x)
+
+    def rk4(self, x, rhs):
+        if self.use_nn and self.neural_integrator:
+            return self.neural_integrator(x)
+        
+        k1 = rhs(x)
+        k2 = rhs(x + 0.5 * self.dt * k1)
+        k3 = rhs(x + 0.5 * self.dt * k2)
+        k4 = rhs(x + self.dt * k3)
+        
+        return x + (self.dt / 6.0) * (k1 + 2*k2 + 2*k3 + k4)
+

@@ -28,6 +28,12 @@ class HaloExchange:
         return neighbors
 
     def Iexchange(self,f):
+        if f.dim() == 3:
+            nv = 1
+        elif f.dim() == 4:
+            nv = f.size(0)
+        else:
+            raise ValueError(f"Unsupported tensor dimension: {f.dim()}. Expected 3 or 4.")
         requests = []
         for dim in range(self.ndim):
             left_neighbor = self.neighbors[f'left_{dim}']
@@ -35,14 +41,14 @@ class HaloExchange:
 
             # Determine which halos to use based on dimension
             if dim == 0:
-                left_halo, right_halo = self.data.halo_xl, self.data.halo_xr
+                left_halo, right_halo = self.data.halo_xl[:nv], self.data.halo_xr[:nv]
             elif dim == 1:
-                left_halo, right_halo = self.data.halo_yl, self.data.halo_yr
+                left_halo, right_halo = self.data.halo_yl[:nv], self.data.halo_yr[:nv]
             else:  # dim == 2
-                left_halo, right_halo = self.data.halo_zl, self.data.halo_zr
+                left_halo, right_halo = self.data.halo_zl[:nv], self.data.halo_zr[:nv]
 
             # Send to right, receive from left
-            send_right = f.select(dim, slice(-left_halo.size(dim), None))
+            send_right = f.select(dim+1, slice(-left_halo.size(dim+1), None))
             if right_neighbor != -1:
                 req = self.comm.Isend(send_right, dest=right_neighbor)
                 requests.append(req)
@@ -51,7 +57,7 @@ class HaloExchange:
                 requests.append(req)
 
             # Send to left, receive from right
-            send_left = f.select(dim, slice(0, right_halo.size(dim)))
+            send_left = f.select(dim+1, slice(0, right_halo.size(dim+1)))
             if left_neighbor != -1:
                 req = self.comm.Isend(send_left, dest=left_neighbor)
                 requests.append(req)
