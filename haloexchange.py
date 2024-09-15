@@ -9,6 +9,7 @@ class HaloExchange:
         self.comm = comm
         self.rank = comm.Get_rank()
         self.size = comm.Get_size()
+        self.sim_params = params
         self.ndim = params.ndim
         self.np = params.np
         self.my_pidx = tuple(torch.unravel_index(self.rank, params.np))
@@ -21,9 +22,15 @@ class HaloExchange:
             neighbors[f'left_{dim}'] = self.rank - diff
             neighbors[f'right_{dim}'] = self.rank + diff
             if(self.my_pidx[dim]==self.np[dim]-1):
-                neighbors[f'right_{dim}'] = -1
+                if(self.sim_params.periodic_bc[dim]):
+                    neighbors[f'right_{dim}'] = self.rank - diff*(self.np[dim]-1)
+                else:
+                    neighbors[f'right_{dim}'] = -1
             if(self.my_pidx[dim]==0):
-                neighbors[f'left_{dim}'] = -1
+                if(self.sim_params.periodic_bc[dim]):
+                    neighbors[f'left_{dim}'] = self.rank + diff*(self.np[dim]-1)
+                else:
+                    neighbors[f'left_{dim}'] = -1
             diff = diff*self.np[dim]
         return neighbors
 

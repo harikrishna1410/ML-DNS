@@ -18,6 +18,9 @@ class SimulationParameters:
             {'start': params.get('zs', 0), 'end': params.get('ze', 1)}
         ]
         
+        #periodic bc
+        self.periodic_bc = (params.get("periodic_bc", [True, True, True]))
+        
         # Time stepping parameters
         self.dt = params.get("dt", 0.001)
         self.num_steps = params.get("num_steps", 1000)
