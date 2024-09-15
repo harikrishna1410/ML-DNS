@@ -1,0 +1,28 @@
+{
+    "ndim": 3,
+    "nxg": 128,
+    "nyg": 128,
+    "nzg": 128,
+    "npx": 2,
+    "npy": 2,
+    "npz": 2,
+    "xs": 0.0,
+    "xe": 1.0,
+    "ys": 0.0,
+    "ye": 1.0,
+    "zs": 0.0,
+    "ze": 1.0,
+    "periodic_bc": [true, true, true],
+    "dt": 0.001,
+    "num_steps": 1000,
+    "num_species": 0,
+    "gamma": 1.4,
+    "diff_order": 8,
+    "use_buoyancy": false,
+    "rho_ref": 1.0,
+    "beta": 0.0,
+    "T_ref": 300.0,
+    "use_nn": false,
+    "advection_method": "compressible"
+}
+
