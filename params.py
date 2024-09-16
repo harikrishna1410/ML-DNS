@@ -6,17 +6,26 @@ class SimulationParameters:
         with open(json_file, 'r') as f:
             params = json.load(f)
         
-        # Grid parameters
-        self.ng = (params.get("nxg", 1), params.get("nyg", 1), params.get("nzg", 1))
+        self.case = params.get("case", "pressure_pulse")
+        self.restart = params.get("restart", False)
+        self.restart_file = params.get("restart_file", "restart.h5")
+        self.case_params = params.get("case_params", {})
+
+        # number of dimensions
         self.ndim = params.get("ndim", 3)
+        # number of grid points
+        self.ng = (params.get("nxg", 1), params.get("nyg", 1), params.get("nzg", 1))
+        # number of processors
         self.np = (params.get("npx", 1), params.get("npy", 1), params.get("npz", 1))
-        
-        # Domain parameters
-        self.grid_stretching_params = [
-            {'start': params.get('xs', 0), 'end': params.get('xe', 1)},
-            {'start': params.get('ys', 0), 'end': params.get('ye', 1)},
-            {'start': params.get('zs', 0), 'end': params.get('ze', 1)}
-        ]
+        # my index
+        self.my_idx = my_idx
+
+        # Domain parameters 
+        self.domain_extents = params.get("domain_extents", 
+                                         {"xs": 0.0, "xe": 1.0, 
+                                          "ys": 0.0, "ye": 1.0, 
+                                          "zs": 0.0, "ze": 1.0})
+        self.grid_stretching_params = params.get("grid_stretching_params", {})
         
         # Periodic boundary conditions
         self.periodic_bc = params.get("periodic_bc", [True, True, True])
@@ -24,25 +33,20 @@ class SimulationParameters:
         # Time stepping parameters
         self.dt = params.get("dt", 0.001)
         self.num_steps = params.get("num_steps", 1000)
-        
+        self.cfl = params.get("cfl", 0.5)  # Courant-Friedrichs-Lewy condition
+
         # Physical parameters
-        self.num_species = params.get("num_species", 1)
+        self.num_species = params.get("num_species", 0)
         if self.num_species > 0:
             raise ValueError("Num species > 0")
+        self.use_buoyancy = params.get("use_buoyancy", False)
+        self.advection_method = params.get("advection_method", "compressible")
+
+        #fluid properties
         self.gamma = params.get("gamma", 1.4)  # Specific heat ratio
         
         # Numerical method parameters
         self.diff_order = params.get("diff_order", 8)  # Order of difference scheme
-        
-        # Parallel computing parameters
-        self.topo = topo
-        self.my_idx = my_idx
-        
-        # Buoyancy parameters
-        self.use_buoyancy = params.get("use_buoyancy", False)
-        self.rho_ref = params.get("rho_ref", 1.0)  # Reference density
-        self.beta = params.get("beta", 0.0)  # Thermal expansion coefficient
-        self.T_ref = params.get("T_ref", 300.0)  # Reference temperature
         
         # Compute local grid points
         self.nl = tuple([
@@ -53,13 +57,15 @@ class SimulationParameters:
         
         # Solver options
         self.use_nn = params.get("use_nn", False)
-        self.advection_method = params.get("advection_method", "compressible")
         
         # New parameters
         self.nvars = self.ndim + 2 + self.num_species  # Total number of variables
-        self.cfl = params.get("cfl", 0.5)  # Courant-Friedrichs-Lewy condition
-        self.output_frequency = params.get("output_frequency", 100)  # How often to save output
-        self.max_iterations = params.get("max_iterations", 1000)  # Maximum number of iterations
+
+        # Output parameters
+        self.output_format = params.get("output_format", "hdf5")
+        self.output_frequency = params.get("output_frequency", 100)
+        self.output_variables = params.get("output_variables", ["rho", "u", "P", "T"])
+        
         
     def __getitem__(self, key):
         return getattr(self, key)

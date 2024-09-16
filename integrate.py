@@ -8,9 +8,6 @@ class Integrator:
         self.dt = dt
         self.neural_integrator = neural_integrator
         self.use_nn = use_nn
-        self.set_method(method)
-
-    def set_method(self, method):
         if method == "rk4":
             self.integrator = self.rk4
         elif method == "euler":

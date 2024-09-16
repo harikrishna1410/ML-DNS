@@ -1,28 +1,43 @@
 {
+    "case": "pressure_pulse",
+    "restart": false,
+    "restart_file": "restart.h5",
+    "case_params": {
+        "center": [0.5, 0.5, 0.5],
+        "amplitude": 0.1,
+        "T_ambient": 1.0,
+        "P_ambient": 1.0
+    },
     "ndim": 3,
     "nxg": 128,
     "nyg": 128,
     "nzg": 128,
-    "npx": 2,
-    "npy": 2,
-    "npz": 2,
-    "xs": 0.0,
-    "xe": 1.0,
-    "ys": 0.0,
-    "ye": 1.0,
-    "zs": 0.0,
-    "ze": 1.0,
+    "npx": 1,
+    "npy": 1,
+    "npz": 1,
+    "domain_extents": {
+        "xs": 0.0,
+        "xe": 1.0,
+        "ys": 0.0,
+        "ye": 1.0,
+        "zs": 0.0,
+        "ze": 1.0
+    },
+    "grid_stretching_params": {},
     "periodic_bc": [true, true, true],
-    "dt": 0.001,
-    "num_steps": 1000,
+    "dt": 0.0001,
+    "num_steps": 1,
+    "cfl": 0.5,
     "num_species": 0,
+    "use_buoyancy": false,
+    "advection_method": "compressible",
     "gamma": 1.4,
     "diff_order": 8,
-    "use_buoyancy": false,
-    "rho_ref": 1.0,
-    "beta": 0.0,
-    "T_ref": 300.0,
     "use_nn": false,
-    "advection_method": "compressible"
+    "output": {
+        "format": "hdf5",
+        "frequency": 100,
+        "variables": ["rho", "u", "P", "T"]
+    }
 }
 

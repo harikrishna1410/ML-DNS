@@ -12,7 +12,7 @@ class HaloExchange:
         self.sim_params = params
         self.ndim = params.ndim
         self.np = params.np
-        self.my_pidx = tuple(torch.unravel_index(self.rank, params.np))
+        self.my_pidx = params.my_idx
         self.neighbors = self._get_neighbors()
 
     def _get_neighbors(self):

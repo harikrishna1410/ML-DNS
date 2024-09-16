@@ -1,29 +1,38 @@
 import numpy as np
+import torch
+from params import SimulationParameters
 class Grid:
-    def __init__(self, params,my_pidx):
+    def __init__(self, params:SimulationParameters):
         self.ndim = params.ndim
         self.ng = params.ng
-        self.nl = tuple([
-            self.ng[i] // params.np[i] + 
-            (self.ng[i] % params.np[i] if my_pidx[i] == params.np[i] - 1 else 0)
-            for i in range(3)
-        ])  # Compute local grid points
+        self.nl = params.nl
+        self.sim_params = params
         ##
         self._x, self._dl_dx = self.stretch_coordinates(
-            self.ng[0], params.grid_stretching_params[0]
+            self.ng[0], params.grid_stretching_params
         )  # Stretching in x-direction
+        self._x = self.sim_params.domain_extents['xs'] + \
+                    self._x*(self.sim_params.domain_extents['xe'] - \
+                             self.sim_params.domain_extents['xs'])
         if(self.ndim > 1):
             self._y, self._dl_dy = self.stretch_coordinates(
-                self.ng[1], params.grid_stretching_params[1]
+                self.ng[1], params.grid_stretching_params
             )  # Stretching in y-direction
+            self._y = self.sim_params.domain_extents['ys'] + \
+                    self._y*(self.sim_params.domain_extents['ye'] - \
+                             self.sim_params.domain_extents['ys'])
         if(self.ndim > 2):
             self._z, self._dl_dz = self.stretch_coordinates(
-                self.ng[2], params.grid_stretching_params[2]
+                self.ng[2], params.grid_stretching_params
             )  # Stretching in z-direction
+            self._z = self.sim_params.domain_extents['zs'] + \
+                    self._z*(self.sim_params.domain_extents['ze'] - \
+                             self.sim_params.domain_extents['zs'])
         ##
         for i, coord in enumerate(['x', 'y', 'z'][:self.ndim]):
-            start = my_pidx[i] * self.nl[i]
-            end = None if my_pidx[i] == params.np[i] - 1 else (my_pidx[i] + 1) * self.nl[i]
+            start = params.my_idx[i] * self.nl[i]
+            end = None if self.sim_params.my_idx[i] == self.sim_params.np[i] - 1 \
+                        else (self.sim_params.my_idx[i] + 1) * self.nl[i]
             setattr(self, f'_{coord}l', getattr(self, f'_{coord}')[start:end])
             setattr(self, f'_dl_d{coord}l', getattr(self, f'_dl_d{coord}')[start:end])
     
@@ -68,6 +77,6 @@ class Grid:
         Returns:
         tuple: (coordinates, grid spacing)
         """
-        coordinates = np.linspace(stretching_params['start'], stretching_params['end'], n)
-        dl_dx = np.ones(n)  # Uniform grid spacing
+        coordinates = torch.linspace(0, 1, n)
+        dl_dx = torch.ones(n)  # Uniform grid spacing
         return coordinates, dl_dx
