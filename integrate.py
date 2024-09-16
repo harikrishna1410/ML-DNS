@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from data import SimulationState
 
 class Integrator:
 
@@ -8,7 +9,7 @@ class Integrator:
         self.neural_integrator = neural_integrator
         self.use_nn = use_nn
         self.set_method(method)
-    ##
+
     def set_method(self, method):
         if method == "rk4":
             self.integrator = self.rk4
@@ -17,8 +18,8 @@ class Integrator:
         else:
             raise ValueError(f"Unsupported integration method: {method}")
 
-    def integrate(self, x, rhs):
-        return self.integrator(x, rhs)
+    def integrate(self, state: SimulationState, rhs):
+        return self.integrator(state, rhs)
 
     def set_dt(self, dt):
         self.dt = dt
@@ -35,19 +36,30 @@ class Integrator:
     def toggle_use_nn(self):
         self.use_nn = not self.use_nn
 
-    def euler(self, x, rhs):
+    def euler(self, state: SimulationState, rhs):
         if self.use_nn and self.neural_integrator:
-            return self.neural_integrator(x)
-        return x + self.dt * rhs(x)
+            return self.neural_integrator(state)
+        state.soln += self.dt * rhs(state)
+        return state
 
-    def rk4(self, x, rhs):
+    def rk4(self, state: SimulationState, rhs):
         if self.use_nn and self.neural_integrator:
-            return self.neural_integrator(x)
+            return self.neural_integrator(state)
         
-        k1 = rhs(x)
-        k2 = rhs(x + 0.5 * self.dt * k1)
-        k3 = rhs(x + 0.5 * self.dt * k2)
-        k4 = rhs(x + self.dt * k3)
+        k1 = rhs(state)
         
-        return x + (self.dt / 6.0) * (k1 + 2*k2 + 2*k3 + k4)
+        state.soln += 0.5 * self.dt * k1
+        k2 = rhs(state)
+        
+        state.soln -= 0.5 * self.dt * k1  # Revert to original state
+        state.soln += 0.5 * self.dt * k2
+        k3 = rhs(state)
+        
+        state.soln -= 0.5 * self.dt * k2  # Revert to original state
+        state.soln += self.dt * k3
+        k4 = rhs(state)
+        
+        state.soln -= self.dt * k3  # Revert to original state
+        state.soln += (self.dt / 6.0) * (k1 + 2*k2 + 2*k3 + k4)
+        return state
 

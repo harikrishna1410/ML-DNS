@@ -18,8 +18,8 @@ class SimulationParameters:
             {'start': params.get('zs', 0), 'end': params.get('ze', 1)}
         ]
         
-        #periodic bc
-        self.periodic_bc = (params.get("periodic_bc", [True, True, True]))
+        # Periodic boundary conditions
+        self.periodic_bc = params.get("periodic_bc", [True, True, True])
         
         # Time stepping parameters
         self.dt = params.get("dt", 0.001)
@@ -27,7 +27,7 @@ class SimulationParameters:
         
         # Physical parameters
         self.num_species = params.get("num_species", 1)
-        if(self.num_species>0):
+        if self.num_species > 0:
             raise ValueError("Num species > 0")
         self.gamma = params.get("gamma", 1.4)  # Specific heat ratio
         
@@ -55,7 +55,11 @@ class SimulationParameters:
         self.use_nn = params.get("use_nn", False)
         self.advection_method = params.get("advection_method", "compressible")
         
-        
+        # New parameters
+        self.nvars = self.ndim + 2 + self.num_species  # Total number of variables
+        self.cfl = params.get("cfl", 0.5)  # Courant-Friedrichs-Lewy condition
+        self.output_frequency = params.get("output_frequency", 100)  # How often to save output
+        self.max_iterations = params.get("max_iterations", 1000)  # Maximum number of iterations
         
     def __getitem__(self, key):
         return getattr(self, key)

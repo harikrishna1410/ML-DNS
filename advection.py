@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 from neural_network_model import NeuralNetworkModel
 from integrate import Integrator
+from data import SimulationState
 
 class Advection(nn.Module):
     def __init__(self,
@@ -49,31 +50,27 @@ class Advection(nn.Module):
         """
         self.use_nn = value
 
-    def forward_incompressible(self, x):
+    def forward_incompressible(self, state: SimulationState):
         if self.use_nn and self.nn_model:
-            return self.nn_model(x)
+            return self.nn_model(state)
         # Implement incompressible advection scheme
         pass
 
-    def forward_compressible(self, x):
+    def forward_compressible(self, state: SimulationState):
         if self.use_nn and self.nn_model:
-            return self.nn_model(x)
-        # Unpack variables from x
-        rho = x[0]
-        rho_u = x[1:self.sim_params.ndim+1]
-        rho_E = x[self.sim_params.ndim+1]
-        rho_Ys = x[self.sim_params.ndim+2:]  # Species mass fractions
-
-        # Calculate velocities
-        u = [rho_u[i] / rho for i in range(self.sim_params.ndim)]
-
+            return self.nn_model(state)
+        
+        # Access variables directly from SimulationState
+        rho = state.rho
+        u = state.u
+        
         # Prepare tensor for gradient calculation
         grad_vars = [rho]
         for i in range(self.sim_params.ndim):
-            grad_vars.extend([rho_u[j] * u[i] for j in range(self.sim_params.ndim)])
-        grad_vars.extend([rho_E * u[i] for i in range(self.sim_params.ndim)])
-        for rho_Y in rho_Ys:
-            grad_vars.extend([rho_Y * u[i] for i in range(self.sim_params.ndim)])
+            grad_vars.extend([state.soln[j+1] * u[i] for j in range(self.sim_params.ndim)])
+        grad_vars.extend([state.rho_E * u[i] for i in range(self.sim_params.ndim)])
+        for i in range(self.sim_params.nvars - self.sim_params.ndim - 2):  # For each species
+            grad_vars.extend([state.rho_Ys[i] * u[j] for j in range(self.sim_params.ndim)])
         
         grad_vars = torch.stack(grad_vars)
 
@@ -94,7 +91,7 @@ class Advection(nn.Module):
         result.append(-torch.sum(torch.stack([gradients[i][self.sim_params.ndim+1] for i in range(self.sim_params.ndim)])))
 
         # Species conservation equations
-        num_species = len(rho_Ys)
+        num_species = self.sim_params.nvars - self.sim_params.ndim - 2
         for i in range(num_species):
             result.append(-torch.sum(torch.stack([
                 gradients[j][self.sim_params.ndim+2+i] 
@@ -106,17 +103,15 @@ class Advection(nn.Module):
 
         return result
     
-    def integrate(self, x):
+    def integrate(self, state: SimulationState):
         """
         Integrate the advection term forward in time.
         
         Args:
-        x (torch.Tensor): The current state of the system
+        state (SimulationState): The current state of the system
         
         Returns:
-        torch.Tensor: The updated state after advection
+        SimulationState: The updated state after advection
         """
         
-        rhs = self.forward(x)
-        
-        return self.integrator.integrate(x, rhs)
+        return self.integrator.integrate(state, self.forward)

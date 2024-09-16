@@ -35,9 +35,9 @@ class Derivatives:
         
         # Stack left and right padding along the input axis
         ##Note that left and right padding alwlays have depth in first dimension
-        padded_tensor = torch.cat([left_padding.transpose(0,axis), 
+        padded_tensor = torch.cat([left_padding, 
                                    tensor, 
-                                   right_padding.transpose(0,axis)], dim=axis)
+                                   right_padding], dim=axis)
         
         if axis == 0:
             kernel = stencil.view(-1, 1, 1)
@@ -75,9 +75,9 @@ class Derivatives:
         kernel = stencil.view(*kernel_shape).repeat(tensor.shape(0),1,1,1,1)
         
         # Stack left and right padding along the input axis
-        padded_tensor = torch.cat([left_padding.transpose(1,axis+1), 
+        padded_tensor = torch.cat([left_padding, 
                                    tensor, 
-                                   right_padding.transpose(1,axis+1)], dim=axis+1)
+                                   right_padding], dim=axis+1)
         
         # Perform convolution
         result = F.conv3d(padded_tensor,

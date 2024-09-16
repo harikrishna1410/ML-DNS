@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from neural_network_model import NeuralNetworkModel
+from data import SimulationState
 
 class RHS(nn.Module):
     def __init__(self, 
@@ -14,38 +15,40 @@ class RHS(nn.Module):
         self.diffusion = diffusion
         self.force = force
 
-    def forward(self, x):
-        result = torch.zeros_like(x)
+    def forward(self, state: SimulationState):
+        result = torch.zeros_like(state.soln)
         if self.advection:
-            result += self.advection(x)
+            result += self.advection(state)
         if self.reaction:
-            result += self.reaction(x)
+            result += self.reaction(state)
         if self.diffusion:
-            result += self.diffusion(x)
+            result += self.diffusion(state)
         if self.force:
-            result += self.force(x)
+            result += self.force(state)
         return result
 
-    def integrate(self, x, p):
+    def integrate(self, state: SimulationState):
         """
         Integrate the RHS components forward in time.
         
         Args:
-        x (torch.Tensor): The current state of the system
-        p (torch.Tensor): The current pressure
+        state (SimulationState): The current state of the system
         
         Returns:
-        torch.Tensor: The updated state after integration
+        SimulationState: The updated state after integration
         """
         if self.advection:
-            x = self.advection.integrate(x)
+            state = self.advection.integrate(state)
         
         if self.force:
-            x = self.force.integrate(x, p)
+            state = self.force.integrate(state)
         
         # Ignoring diffusion and reaction for now
         
-        return x
+        # Compute primitives from the updated solution
+        state.compute_primitives_from_soln()
+        
+        return state
 
     def toggle_use_nn(self, component):
         if component == 'advection' and self.advection:
@@ -70,13 +73,6 @@ class RHS(nn.Module):
         if self.force:
             status['force'] = self.force.get_use_nn()
         return status
-
-    def update_forward_method(self):
-        method = self.options.get('method', 'incompressible')
-        if method == 'compressible':
-            self.forward = self.forward_compressible
-        else:
-            raise ValueError(f"Invalid method '{method}'. Choose 'incompressible' or 'compressible'.")
         
 
     

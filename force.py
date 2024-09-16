@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 from neural_network_model import NeuralNetworkModel
 from integrate import Integrator
+from data import SimulationState
 
 class Force(nn.Module):
     def __init__(self,
@@ -32,40 +33,32 @@ class Force(nn.Module):
     def get_use_nn(self) -> bool:
         return self.use_nn
     
-    def forward(self, x, p):
+    def forward(self, state: SimulationState):
         if self.use_nn and self.nn_model:
-            return self.nn_model(x)
+            return self.nn_model(state)
         
-        # Unpack variables from x
-        rho = x[0]
-        rho_u = x[1:self.sim_params.ndim+1]
-        rho_E = x[self.sim_params.ndim+1]
-        rho_Ys = x[self.sim_params.ndim+2:]
-
-        # Initialize the result list
-        result = torch.zeros_like(x)
+        # Initialize the result tensor
+        result = torch.zeros_like(state.soln)
+        
         # Add pressure gradient term
-        p_gradients = self.derivatives.gradient(p)
+        p_gradients = self.derivatives.gradient(state.P)
         for i in range(self.sim_params.ndim):
             result[i+1] -= p_gradients[i]  # Negative pressure gradient force on momentum
-        ##
-        p_u = torch.stack([p*rho_u[i] / rho for i in range(self.sim_params.ndim)],dim=0)
+        
+        # Compute p_u
+        p_u = torch.stack([state.P * state.rho_u[i] / state.rho for i in range(self.sim_params.ndim)], dim=0)
         result[self.sim_params.ndim+1] -= self.derivatives.divergence(p_u)
 
         return result
 
-    def integrate(self, x, p):
+    def integrate(self, state: SimulationState):
         """
         Integrate the force term forward in time.
         
         Args:
-        x (torch.Tensor): The current state of the system
-        p (torch.Tensor): The current pressure
+        state (SimulationState): The current state of the system
         
         Returns:
-        torch.Tensor: The updated state after applying the force
+        SimulationState: The updated state after applying the force
         """
-        
-        rhs = self.forward(x, p)
-        
-        return self.integrator.integrate(x, rhs)
+        return self.integrator.integrate(state, self.forward)
