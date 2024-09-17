@@ -37,6 +37,9 @@ class Integrator:
         if self.use_nn and self.neural_integrator:
             return self.neural_integrator(state)
         state.soln += self.dt * rhs(state)
+
+        state.time += self.dt
+        
         return state
 
     def rk4(self, state: SimulationState, rhs):
@@ -58,5 +61,8 @@ class Integrator:
         
         state.soln -= self.dt * k3  # Revert to original state
         state.soln += (self.dt / 6.0) * (k1 + 2*k2 + 2*k3 + k4)
+
+        # Update the simulation time
+        state.time += self.dt
         return state
 

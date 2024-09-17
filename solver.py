@@ -14,9 +14,10 @@ from integrate import Integrator
 from force import Force
 from haloexchange import HaloExchange
 from init import Initializer
+from DNS_io import IO
 
 class NavierStokesSolver:
-    def __init__(self,json_file):
+    def __init__(self, json_file):
         self.comm = MPI.COMM_WORLD
         self.rank = self.comm.Get_rank()
         self.size = self.comm.Get_size()
@@ -39,23 +40,24 @@ class NavierStokesSolver:
         self.state = SimulationState(self.params, self.fluid_props)
         # Initialize simulation data object
         self.data = SimulationData(self.params, self.state)
-        ##
+        
         self.halo_exchange = HaloExchange(self.params, self.data, self.comm)
         # Initialize derivatives object with grid
         self.derivatives = Derivatives(self.grid, self.halo_exchange, self.data)
 
         # Initialize Integrator
         self.integrator = Integrator(self.params.dt,
-                                     use_nn=False,
-                                     neural_integrator=None)
+                                     method=self.params.integrator,
+                                     use_nn=self.params.integrator_use_nn,
+                                     neural_integrator=self.params.integrator_nn_model)
         
         # Initialize Advection object
         self.advection = Advection(
             params=self.params,
             derivatives=self.derivatives,
             integrator=self.integrator,
-            use_nn=self.params.use_nn,
-            nn_model=None,
+            use_nn=self.params.advection_use_nn,
+            nn_model=None,  
             method=self.params.advection_method
         )
 
@@ -64,8 +66,8 @@ class NavierStokesSolver:
             params=self.params,
             derivatives=self.derivatives,
             integrator=self.integrator,
-            use_nn=self.params.use_nn,
-            nn_model=None,
+            use_nn=self.params.force_use_nn,
+            nn_model=None,  
             use_buoyancy=self.params.use_buoyancy
         )
 
@@ -75,6 +77,7 @@ class NavierStokesSolver:
         self.initializer = Initializer(self.params, self.state, self.grid)
         self.initializer.initialize()
 
+        self.io = IO(self.params, self.state)
 
     def solve(self):
         """
@@ -83,9 +86,15 @@ class NavierStokesSolver:
         for step in range(self.params.num_steps):
             self.state = self.rhs.integrate(self.state)
             self.state.compute_primitives_from_soln()
+            
+            # Write output at specified intervals
+            if step % self.params.output_frequency == 0:
+                self.io.write()
 
+        # Write final state
+        self.io.write()
 
-
-fname="inputs/input.json"
-solver = NavierStokesSolver(fname)
-solver.solve()
+if __name__ == "__main__":
+    fname = "inputs/input.json"
+    solver = NavierStokesSolver(fname)
+    solver.solve()

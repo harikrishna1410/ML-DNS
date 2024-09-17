@@ -11,9 +11,9 @@ class Grid:
         self._x, self._dl_dx = self.stretch_coordinates(
             self.ng[0], params.grid_stretching_params
         )  # Stretching in x-direction
-        self._x = self.sim_params.domain_extents['xs'] + \
+        self._x = (self.sim_params.domain_extents['xs'] + \
                     self._x*(self.sim_params.domain_extents['xe'] - \
-                             self.sim_params.domain_extents['xs'])
+                             self.sim_params.domain_extents['xs']))
         if(self.ndim > 1):
             self._y, self._dl_dy = self.stretch_coordinates(
                 self.ng[1], params.grid_stretching_params
@@ -29,12 +29,18 @@ class Grid:
                     self._z*(self.sim_params.domain_extents['ze'] - \
                              self.sim_params.domain_extents['zs'])
         ##
+        # Non-dimensionalize x, y, z coordinates and their derivatives
+        for dim,dir in enumerate(["x","y","z"][:self.ndim]):
+            setattr(self, f"_{dir}", getattr(self, f"_{dir}") / self.sim_params.l_ref)
+            setattr(self, f"_dl_d{dir}", getattr(self, f"_dl_d{dir}") * self.sim_params.l_ref)
+            
         for i, coord in enumerate(['x', 'y', 'z'][:self.ndim]):
             start = params.my_idx[i] * self.nl[i]
             end = None if self.sim_params.my_idx[i] == self.sim_params.np[i] - 1 \
                         else (self.sim_params.my_idx[i] + 1) * self.nl[i]
             setattr(self, f'_{coord}l', getattr(self, f'_{coord}')[start:end])
             setattr(self, f'_dl_d{coord}l', getattr(self, f'_dl_d{coord}')[start:end])
+
     
     def xl(self, i=None):
         if i is None:

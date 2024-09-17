@@ -43,8 +43,6 @@ class RHS(nn.Module):
         if self.force:
             state = self.force.integrate(state)
         
-        # Ignoring diffusion and reaction for now
-        
         # Compute primitives from the updated solution
         state.compute_primitives_from_soln()
         

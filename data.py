@@ -3,16 +3,17 @@ from params import SimulationParameters
 from properties import FluidProperties
 
 class SimulationState:
-    def __init__(self, params:SimulationParameters,props:FluidProperties):
+    def __init__(self, params:SimulationParameters, props:FluidProperties):
         self.nvars = params.nvars
         self.sim_params = params
         self.Fluid_props = props
         # Create tensors for primitives and solution
         #rho,u,v,w,T,Ys,....,E (total energy),p (pressure)
         self.primitives = torch.zeros((self.nvars+2,) + tuple(params.nl))
-        ##soln: rho,rho*u,rho*v,rho*w,rho*e,rho*Ys
+        ##soln: rho,rho*u,rho*v,rho*w,rho*E,rho*Ys
         self.soln = torch.zeros((self.nvars,) + tuple(params.nl))
-        
+        self.time = 0.0  
+
     # Initialize properties as variables
     @property
     def rho(self):
@@ -26,13 +27,25 @@ class SimulationState:
     def rho_u(self):
         return self.soln[1:self.sim_params.ndim+1]
 
+    @rho_u.setter
+    def rho_u(self, value):
+        self.soln[1:self.sim_params.ndim+1] = value
+
     @property
     def rho_E(self):
         return self.soln[self.sim_params.ndim+1]
 
+    @rho_E.setter
+    def rho_E(self, value):
+        self.soln[self.sim_params.ndim+1] = value
+
     @property
     def rho_Ys(self):
         return self.soln[self.sim_params.ndim+2:]
+
+    @rho_Ys.setter
+    def rho_Ys(self, value):
+        self.soln[self.sim_params.ndim+2:] = value
 
     @property
     def u(self):
@@ -61,7 +74,7 @@ class SimulationState:
     @property
     def E(self):
         return self.primitives[-2]
-    ##id starts from 0
+    
     @property
     def Ys(self):
         return self.primitives[self.sim_params.ndim + 2:]
@@ -89,8 +102,7 @@ class SimulationState:
         # Compute temperature (T)
         self.primitives[self.sim_params.ndim+1] = (self.primitives[-2] \
                                             - 0.5 * torch.sum(self.primitives[1:self.sim_params.ndim+1]**2, dim=0))\
-                                            * (self.Fluid_props.gamma - 1) * self.Fluid_props.MW_air \
-                                            / self.Fluid_props.R_universal
+                                            * (self.Fluid_props.Cv)
         self.primitives[-1] = self.compute_pressure(self.primitives[0], self.primitives[self.sim_params.ndim+1])
 
     def compute_soln_from_primitives(self):
@@ -103,15 +115,12 @@ class SimulationState:
         
         # Compute total energy (rho * E)
         kinetic_energy = 0.5 * torch.sum(self.primitives[1:self.sim_params.ndim+1]**2, dim=0)
-        internal_energy = self.primitives[self.sim_params.ndim+1] * self.Fluid_props.R_universal / \
-                          (self.Fluid_props.gamma - 1) / self.Fluid_props.MW_air
+        internal_energy = self.primitives[self.sim_params.ndim+1] * self.Fluid_props.Cv
         self.soln[self.sim_params.ndim+1] = self.primitives[0] * (kinetic_energy + internal_energy)
         
         # Compute species densities (rho * Ys)
         for i in range(self.nvars - self.sim_params.ndim - 2):
             self.soln[self.sim_params.ndim+2+i] = self.primitives[0] * self.primitives[self.sim_params.ndim+2+i]
-        
-        
         
     def compute_pressure(self, rho: torch.Tensor, T: torch.Tensor) -> torch.Tensor:
         """
@@ -124,8 +133,7 @@ class SimulationState:
         Returns:
         torch.Tensor: Pressure in Pa
         """
-        R_specific = self.Fluid_props.R_universal / self.Fluid_props.MW_air  # Specific gas constant for air
-        return rho * R_specific * T
+        return rho * self.Fluid_props.R * T
 
     def compute_density_from_pressure(self, P: torch.Tensor, T: torch.Tensor) -> torch.Tensor:
         """
@@ -138,41 +146,26 @@ class SimulationState:
         Returns:
         torch.Tensor: Density in kg/m^3
         """
-        R_specific = self.Fluid_props.R_universal / self.Fluid_props.MW_air  # Specific gas constant for air
-        return P / (R_specific * T)
+        return P / (self.Fluid_props.R * T)
     
     
 
 class SimulationData:
     def __init__(self, params : SimulationParameters,state: SimulationState):
         self.state = state
-        self.params = params
+        self.sim_params = params
+        ##assuming central difference
         self.halo_depth = params.diff_order // 2
         
         # Initialize halos for all 6 directions (2 per axis)
         self.halos = {}
-        if params.ndim >= 1:
-            self.halos['x'] = torch.zeros((self.state.nvars, self.halo_depth, params.nl[1], params.nl[2]))  # x-direction halos (left and right)
-        if params.ndim >= 2:
-            self.halos['y'] = torch.zeros((self.state.nvars, params.nl[0], self.halo_depth, params.nl[2]))  # y-direction halos (left and right)
-        if params.ndim == 3:
-            self.halos['z'] = torch.zeros((self.state.nvars, params.nl[0], params.nl[1], self.halo_depth))   # z-direction halos (left and right)
+        directions = ['x', 'y', 'z'][:self.sim_params.ndim]
+        for i, direction in enumerate(directions):
+            halo_shape = [2, self.state.nvars] + [self.halo_depth if j == i else params.nl[j] for j in range(self.sim_params.ndim)]
+            self.halos[direction] = torch.zeros(halo_shape)
+            setattr(self, f'halo_{direction}l', self.halos[direction][0])
+            setattr(self, f'halo_{direction}r', self.halos[direction][1])
         
-        self.halo_xl = self.halos['x'][0]
-        self.halo_xr = self.halos['x'][1]
-        if(params.ndim>1):
-            self.halo_yl = self.halos['y'][0]
-            self.halo_yr = self.halos['y'][1]
-        else:
-            self.halo_yl = None
-            self.halo_yr = None
-        
-        if params.ndim > 2:
-            self.halo_zl = self.halos['z'][0]
-            self.halo_zr = self.halos['z'][1]
-        else:
-            self.halo_zl = None
-            self.halo_zr = None
 
     def zero_halos(self):
         """

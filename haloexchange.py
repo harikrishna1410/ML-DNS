@@ -13,6 +13,7 @@ class HaloExchange:
         self.ndim = params.ndim
         self.np = params.np
         self.my_pidx = params.my_idx
+        self.halo_depth = self.data.halo_depth
         self.neighbors = self._get_neighbors()
 
     def _get_neighbors(self):
@@ -34,44 +35,59 @@ class HaloExchange:
             diff = diff*self.np[dim]
         return neighbors
 
-    def Iexchange(self,f):
+    def _Iexchange_dim(self, f: torch.Tensor, dim: int):
         if f.dim() == 3:
             nv = 1
+            f = f.unsqueeze(0)
         elif f.dim() == 4:
             nv = f.size(0)
         else:
             raise ValueError(f"Unsupported tensor dimension: {f.dim()}. Expected 3 or 4.")
+
+        left_neighbor = self.neighbors[f'left_{dim}']
+        right_neighbor = self.neighbors[f'right_{dim}']
+
+        # Determine which halos to use based on dimension
+        if dim == 0:
+            left_halo, right_halo = self.data.halo_xl[:nv], self.data.halo_xr[:nv]
+            send_right = f[:,-self.halo_depth:,:,:]
+            send_left = f[:,:self.halo_depth,:,:]
+        elif dim == 1:
+            left_halo, right_halo = self.data.halo_yl[:nv], self.data.halo_yr[:nv]
+            send_right = f[:,:,-self.halo_depth:,:]
+            send_left = f[:,:,:self.halo_depth,:]
+        else:  # dim == 2
+            left_halo, right_halo = self.data.halo_zl[:nv], self.data.halo_zr[:nv]
+            send_right = f[:,:,:,-self.halo_depth:]
+            send_left = f[:,:,:,:self.halo_depth]
+
         requests = []
-        for dim in range(self.ndim):
-            left_neighbor = self.neighbors[f'left_{dim}']
-            right_neighbor = self.neighbors[f'right_{dim}']
+        # Send to right, receive from left
+        if right_neighbor != -1:
+            req = self.comm.Isend(send_right, dest=right_neighbor)
+            requests.append(req)
+        if left_neighbor != -1:
+            req = self.comm.Irecv(left_halo, source=left_neighbor)
+            requests.append(req)
 
-            # Determine which halos to use based on dimension
-            if dim == 0:
-                left_halo, right_halo = self.data.halo_xl[:nv], self.data.halo_xr[:nv]
-            elif dim == 1:
-                left_halo, right_halo = self.data.halo_yl[:nv], self.data.halo_yr[:nv]
-            else:  # dim == 2
-                left_halo, right_halo = self.data.halo_zl[:nv], self.data.halo_zr[:nv]
+        # Send to left, receive from right
+        if left_neighbor != -1:
+            req = self.comm.Isend(send_left, dest=left_neighbor)
+            requests.append(req)
+        if right_neighbor != -1:
+            req = self.comm.Irecv(right_halo, source=right_neighbor)
+            requests.append(req)
 
-            # Send to right, receive from left
-            send_right = f.select(dim+1, slice(-left_halo.size(dim+1), None))
-            if right_neighbor != -1:
-                req = self.comm.Isend(send_right, dest=right_neighbor)
-                requests.append(req)
-            if left_neighbor != -1:
-                req = self.comm.Irecv(left_halo, source=left_neighbor)
-                requests.append(req)
-
-            # Send to left, receive from right
-            send_left = f.select(dim+1, slice(0, right_halo.size(dim+1)))
-            if left_neighbor != -1:
-                req = self.comm.Isend(send_left, dest=left_neighbor)
-                requests.append(req)
-            if right_neighbor != -1:
-                req = self.comm.Irecv(right_halo, source=right_neighbor)
-                requests.append(req)
         return requests
+
+    def Iexchange(self, f: torch.Tensor, dim=None):
+        if dim is not None:
+            return self._Iexchange_dim(f, dim)
+        else:
+            all_requests = []
+            for d in range(self.ndim):
+                all_requests.extend(self._Iexchange_dim(f, d))
+            return all_requests
     
     def wait_dim(self,requests,dim):
         MPI.Request.Waitall(requests[dim*4 : (dim+1)*4])

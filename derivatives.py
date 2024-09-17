@@ -31,8 +31,6 @@ class Derivatives:
         if stencil is None:
             stencil = torch.tensor([-1/280, 4/105, -1/5, 4/5, 0, -4/5, 1/5, -4/105, 1/280])
         
-        stencil = stencil * self.grid.dl_dx(axis)
-        
         # Stack left and right padding along the input axis
         ##Note that left and right padding alwlays have depth in first dimension
         padded_tensor = torch.cat([left_padding, 
@@ -45,10 +43,12 @@ class Derivatives:
             kernel = stencil.view(1, -1, 1)
         else:  # axis == 2
             kernel = stencil.view(1, 1, -1)
-        
+        ##
+        dl_dx_shape = [1,1,1]
+        dl_dx_shape[axis] = -1
         return F.conv3d(padded_tensor.unsqueeze(0).unsqueeze(0), 
                         kernel.unsqueeze(0).unsqueeze(0),
-                        padding=0).squeeze(0).squeeze(0)
+                        padding=0).squeeze(0).squeeze(0)*self.grid.dl_dx(axis).view(dl_dx_shape)
     ##
     def central_difference_multi(self, tensor, axis, left_padding, right_padding, stencil=None):
         """
@@ -67,8 +67,6 @@ class Derivatives:
         if stencil is None:
             stencil = torch.tensor([-1/280, 4/105, -1/5, 4/5, 0, -4/5, 1/5, -4/105, 1/280])
         
-        stencil = stencil * self.grid.dl_dx(axis)
-        
         # Adjust kernel shape for 4D input
         kernel_shape = [1, 1, 1, 1, 1]
         kernel_shape[axis+2] = -1
@@ -84,10 +82,9 @@ class Derivatives:
                           kernel,
                           padding=0,
                           groups=tensor.size(0))  # Use groups for parallel computation
-        
-        return result.transpose(0, 1)  # Restore original dimension order
-
-
+        dl_dx_shape = [1,1,1]
+        dl_dx_shape[axis] = -1
+        return result*self.grid.dl_dx(axis).view(dl_dx_shape)
 
     def divergence(self, tensor, stencil=None):
         """
@@ -103,22 +100,23 @@ class Derivatives:
         torch.Tensor: Divergence of the input tensor
         """
         self.halo_exchange.Iexchange(tensor)
+        ##
+        if tensor.dim() == 5:
+            nv = tensor.size(1)
+            central_diff = self.central_difference_multi
+        elif tensor.dim() == 4:
+            nv = 1
+            central_diff = self.central_difference
+        else:
+            raise ValueError(f"Unsupported tensor dimension: {tensor.dim()}. Expected 4 or 5.")
+        ##
         ret = []
         for dim in range(self.grid.ndim):
             self.halo_exchange.wait_dim(dim)
-            if tensor.dim() == 5:
-                nv = tensor.size(1)
-                central_diff = self.central_difference_multi
-            elif tensor.dim() == 4:
-                nv = 1
-                central_diff = self.central_difference
-            else:
-                raise ValueError(f"Unsupported tensor dimension: {tensor.dim()}. Expected 4 or 5.")
-
             df = central_diff(tensor[dim], 
                               axis=dim,
-                              left_padding=self.sim_data.halos[['x', 'y', 'z'][dim]][0][:nv],
-                              right_padding=self.sim_data.halos[['x', 'y', 'z'][dim]][1][:nv],
+                              left_padding=self.sim_data.halos[['x', 'y', 'z'][dim]][0][:nv].squeeze(0),
+                              right_padding=self.sim_data.halos[['x', 'y', 'z'][dim]][1][:nv].squeeze(0),
                               stencil=stencil)
             ret.append(df)
         self.sim_data.zero_halos()
@@ -139,46 +137,36 @@ class Derivatives:
         Returns:
         tuple of torch.Tensor: Gradient of the input tensor along all axes
         """
-        ##start the transfer
-        self.halo_exchange.Iexchange(tensor)
-        ret = []
-        if(dim):
-            # Compute gradient for a specific dimension
-            self.halo_exchange.wait_dim(dim)
-            if tensor.dim() == 4:
-                nv = tensor.size(0)
-                central_diff = self.central_difference_multi
-            elif tensor.dim() == 3:
-                nv = 1
-                central_diff = self.central_difference
-            else:
-                raise ValueError(f"Unsupported tensor dimension: {tensor.dim()}. Expected 3 or 4.")
-
+        if tensor.dim() == 4:
+            nv = tensor.size(0)
+            central_diff = self.central_difference_multi
+        elif tensor.dim() == 3:
+            nv = 1
+            central_diff = self.central_difference
+        else:
+            raise ValueError(f"Unsupported tensor dimension: {tensor.dim()}. Expected 3 or 4.")
+        req = self.halo_exchange.Iexchange(tensor,dim=dim)
+        if(dim):    
+            ##req is just a 4 element list
+            self.halo_exchange.wait_dim(requests=req,dim=0)
             df = central_diff(tensor, 
                             axis=dim,
-                            left_padding=self.sim_data.halos[['x', 'y', 'z'][dim]][0][:nv],
-                            right_padding=self.sim_data.halos[['x', 'y', 'z'][dim]][1][:nv],
+                            left_padding=self.sim_data.halos[['x', 'y', 'z'][dim]][0][:nv].squeeze(0),
+                            right_padding=self.sim_data.halos[['x', 'y', 'z'][dim]][1][:nv].squeeze(0),
                             stencil=stencil)
             self.sim_data.zero_halos()
             return df
         else:
+            ret = []
             for dim in range(self.grid.ndim):
-                self.halo_exchange.wait_dim(dim)
-                if tensor.dim() == 4:
-                    nv = tensor.size(0)
-                    central_diff = self.central_difference_multi
-                elif tensor.dim() == 3:
-                    nv = 1
-                    central_diff = self.central_difference
-                else:
-                    raise ValueError(f"Unsupported tensor dimension: {tensor.dim()}. Expected 3 or 4.")
-
-            df = central_diff(tensor, 
-                              axis=dim,
-                              left_padding=self.sim_data.halos[['x', 'y', 'z'][dim]][0][:nv],
-                              right_padding=self.sim_data.halos[['x', 'y', 'z'][dim]][1][:nv],
-                              stencil=stencil)
-            ret.append(df)
+                #Here req is 12 element list
+                self.halo_exchange.wait_dim(requests=req,dim=dim)
+                df = central_diff(tensor, 
+                                axis=dim,
+                                left_padding=self.sim_data.halos[['x', 'y', 'z'][dim]][0][:nv].squeeze(0),
+                                right_padding=self.sim_data.halos[['x', 'y', 'z'][dim]][1][:nv].squeeze(0),
+                                stencil=stencil)
+                ret.append(df)
         self.sim_data.zero_halos()
         return tuple(ret)
         
