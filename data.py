@@ -21,7 +21,7 @@ class SimulationState:
 
     @rho.setter
     def rho(self, value):
-        self.soln[0] = value
+        self.primitives[0] = value
 
     @property
     def rho_u(self):
@@ -146,7 +146,33 @@ class SimulationState:
         Returns:
         torch.Tensor: Density in kg/m^3
         """
+        
         return P / (self.Fluid_props.R * T)
+    
+    def min_max(self):
+        """
+        Compute the minimum and maximum values for each variable in the state.
+        
+        Returns:
+        dict: A dictionary containing the min and max values for each variable.
+        """
+        result = {}
+        
+        # Compute min and max for primitives
+        for i, var_name in enumerate(['rho', 'u', 'v', 'w', 'T', 'E', 'P']):
+            min_val = torch.min(self.primitives[i]).item()
+            max_val = torch.max(self.primitives[i]).item()
+            result[f'{var_name}_min'] = min_val
+            result[f'{var_name}_max'] = max_val
+        
+        # Compute min and max for solution variables
+        for i, var_name in enumerate(['rho', 'rho_u', 'rho_v', 'rho_w', 'rho_E']):
+            min_val = torch.min(self.soln[i]).item()
+            max_val = torch.max(self.soln[i]).item()
+            result[f'{var_name}_min'] = min_val
+            result[f'{var_name}_max'] = max_val
+        
+        return result
     
     
 
@@ -161,11 +187,12 @@ class SimulationData:
         self.halos = {}
         directions = ['x', 'y', 'z'][:self.sim_params.ndim]
         for i, direction in enumerate(directions):
-            halo_shape = [2, self.state.nvars] + [self.halo_depth if j == i else params.nl[j] for j in range(self.sim_params.ndim)]
+            halo_shape = [4, self.state.nvars, self.halo_depth] + [params.nl[j] for j in range(self.sim_params.ndim) if j != i]
             self.halos[direction] = torch.zeros(halo_shape)
-            setattr(self, f'halo_{direction}l', self.halos[direction][0])
-            setattr(self, f'halo_{direction}r', self.halos[direction][1])
-        
+            setattr(self, f'halo_{direction}lr', self.halos[direction][0])
+            setattr(self, f'halo_{direction}rr', self.halos[direction][1])
+            setattr(self, f'halo_{direction}ls', self.halos[direction][2])
+            setattr(self, f'halo_{direction}rs', self.halos[direction][3])
 
     def zero_halos(self):
         """

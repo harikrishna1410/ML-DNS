@@ -25,11 +25,11 @@ class NavierStokesSolver:
         # Initialize simulation parameters
         with open(json_file, 'r') as f:
             params = json.load(f)
-        topo = [params.get(n, 1) for n in ['npx', 'npy', 'npz']]
+        topo = [params.get(n) for n in ['npx', 'npy', 'npz']]
         if self.size != topo[0] * topo[1] * topo[2]:
             raise ValueError(f"MPI size {self.size} does not match topology {topo}")
         
-        self.my_pidx = tuple(torch.unravel_index(torch.tensor(self.rank), topo))
+        self.my_pidx = tuple(np.unravel_index(self.rank, topo, order='F'))
         self.params = SimulationParameters(json_file, topo, self.my_pidx)
         
         # Initialize grid object
@@ -76,19 +76,23 @@ class NavierStokesSolver:
 
         self.initializer = Initializer(self.params, self.state, self.grid)
         self.initializer.initialize()
-
         self.io = IO(self.params, self.state)
+        self.io.write()
 
     def solve(self):
         """
         Main solver loop.
         """
         for step in range(self.params.num_steps):
+            if(self.rank == 0):
+                print(f"Step {step}")
+                print(self.state.min_max())
             self.state = self.rhs.integrate(self.state)
             self.state.compute_primitives_from_soln()
             
             # Write output at specified intervals
             if step % self.params.output_frequency == 0:
+                print(f"Writing output at step {step}")
                 self.io.write()
 
         # Write final state

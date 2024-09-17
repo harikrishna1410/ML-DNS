@@ -1,10 +1,10 @@
 import torch
-from mpi4py import MPI
 from data import SimulationData
+from mpi4py import MPI
 from params import SimulationParameters
 
 class HaloExchange:
-    def __init__(self, params: SimulationParameters , data: SimulationData, comm: MPI.Comm):
+    def __init__(self, params: SimulationParameters , data: SimulationData, comm):
         self.data = data
         self.comm = comm
         self.rank = comm.Get_rank()
@@ -49,33 +49,36 @@ class HaloExchange:
 
         # Determine which halos to use based on dimension
         if dim == 0:
-            left_halo, right_halo = self.data.halo_xl[:nv], self.data.halo_xr[:nv]
-            send_right = f[:,-self.halo_depth:,:,:]
-            send_left = f[:,:self.halo_depth,:,:]
+            left_halo_r, right_halo_r = self.data.halo_xlr[:nv], self.data.halo_xrr[:nv]
+            left_halo_s, right_halo_s = self.data.halo_xls[:nv], self.data.halo_xrs[:nv]
+            right_halo_s[:,:,:,:] = f[:,-self.halo_depth:,:,:]
+            left_halo_s[:,:,:,:] = f[:,:self.halo_depth,:,:]
         elif dim == 1:
-            left_halo, right_halo = self.data.halo_yl[:nv], self.data.halo_yr[:nv]
-            send_right = f[:,:,-self.halo_depth:,:]
-            send_left = f[:,:,:self.halo_depth,:]
+            left_halo_r, right_halo_r = self.data.halo_ylr[:nv], self.data.halo_yrr[:nv]
+            left_halo_s, right_halo_s = self.data.halo_yls[:nv], self.data.halo_yrs[:nv]
+            right_halo_s[:,:,:,:] = f[:,:,-self.halo_depth:,:].permute(0,2,1,3)
+            left_halo_s[:,:,:,:] = f[:,:,:self.halo_depth,:].permute(0,2,1,3)
         else:  # dim == 2
-            left_halo, right_halo = self.data.halo_zl[:nv], self.data.halo_zr[:nv]
-            send_right = f[:,:,:,-self.halo_depth:]
-            send_left = f[:,:,:,:self.halo_depth]
+            left_halo_r, right_halo_r = self.data.halo_zlr[:nv], self.data.halo_zrr[:nv]
+            left_halo_s, right_halo_s = self.data.halo_zls[:nv], self.data.halo_zrs[:nv]
+            right_halo_s[:,:,:,:] = f[:,:,:,-self.halo_depth:].permute(0,3,1,2)
+            left_halo_s[:,:,:,:] = f[:,:,:,:self.halo_depth].permute(0,3,1,2)
 
         requests = []
         # Send to right, receive from left
         if right_neighbor != -1:
-            req = self.comm.Isend(send_right, dest=right_neighbor)
+            req = self.comm.Isend(right_halo_s.numpy(), dest=right_neighbor)
             requests.append(req)
         if left_neighbor != -1:
-            req = self.comm.Irecv(left_halo, source=left_neighbor)
+            req = self.comm.Irecv(left_halo_r.numpy(), source=left_neighbor)
             requests.append(req)
 
         # Send to left, receive from right
         if left_neighbor != -1:
-            req = self.comm.Isend(send_left, dest=left_neighbor)
+            req = self.comm.Isend(left_halo_s.numpy(), dest=left_neighbor)
             requests.append(req)
         if right_neighbor != -1:
-            req = self.comm.Irecv(right_halo, source=right_neighbor)
+            req = self.comm.Irecv(right_halo_r.numpy(),source=right_neighbor)
             requests.append(req)
 
         return requests
@@ -90,4 +93,4 @@ class HaloExchange:
             return all_requests
     
     def wait_dim(self,requests,dim):
-        MPI.Request.Waitall(requests[dim*4 : (dim+1)*4])
+        MPI.Request.Waitall(requests[dim*4:dim*4+4])

@@ -13,7 +13,7 @@ class FluidProperties:
         self.R_universal = 8.314462618
         ##
         self.R_univ_nd = self.R_universal\
-            /(self.sim_params.P_ref*self.l_ref**3\
+            /(self.sim_params.P_ref*self.sim_params.l_ref**3\
               /self.sim_params.T_ref)
         #
         self.R = self.R_univ_nd / self.MW

@@ -33,6 +33,12 @@ class Derivatives:
         
         # Stack left and right padding along the input axis
         ##Note that left and right padding alwlays have depth in first dimension
+        if(axis == 1):
+            left_padding = left_padding.permute(1,0,2)
+            right_padding = right_padding.permute(1,0,2)
+        elif(axis == 2):
+            left_padding = left_padding.permute(1,2,0)
+            right_padding = right_padding.permute(1,2,0)
         padded_tensor = torch.cat([left_padding, 
                                    tensor, 
                                    right_padding], dim=axis)
@@ -70,8 +76,14 @@ class Derivatives:
         # Adjust kernel shape for 4D input
         kernel_shape = [1, 1, 1, 1, 1]
         kernel_shape[axis+2] = -1
-        kernel = stencil.view(*kernel_shape).repeat(tensor.shape(0),1,1,1,1)
+        kernel = stencil.view(*kernel_shape).repeat(tensor.size(0),1,1,1,1)
         
+        if(axis == 1):
+            left_padding = left_padding.permute(0,2,1,3)
+            right_padding = right_padding.permute(0,2,1,3)
+        elif(axis == 2):
+            left_padding = left_padding.permute(0,2,3,1)
+            right_padding = right_padding.permute(0,2,3,1)
         # Stack left and right padding along the input axis
         padded_tensor = torch.cat([left_padding, 
                                    tensor, 
@@ -99,7 +111,7 @@ class Derivatives:
         Returns:
         torch.Tensor: Divergence of the input tensor
         """
-        self.halo_exchange.Iexchange(tensor)
+        
         ##
         if tensor.dim() == 5:
             nv = tensor.size(1)
@@ -112,7 +124,8 @@ class Derivatives:
         ##
         ret = []
         for dim in range(self.grid.ndim):
-            self.halo_exchange.wait_dim(dim)
+            req=self.halo_exchange.Iexchange(tensor[dim],dim=dim)
+            self.halo_exchange.wait_dim(requests=req,dim=0)
             df = central_diff(tensor[dim], 
                               axis=dim,
                               left_padding=self.sim_data.halos[['x', 'y', 'z'][dim]][0][:nv].squeeze(0),

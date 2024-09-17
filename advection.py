@@ -65,41 +65,17 @@ class Advection(nn.Module):
         u = state.u
         
         # Prepare tensor for gradient calculation
-        grad_vars = [rho]
-        for i in range(self.sim_params.ndim):
-            grad_vars.extend([state.soln[j+1] * u[i] for j in range(self.sim_params.ndim)])
-        grad_vars.extend([state.rho_E * u[i] for i in range(self.sim_params.ndim)])
-        for i in range(self.sim_params.nvars - self.sim_params.ndim - 2):  # For each species
-            grad_vars.extend([state.rho_Ys[i] * u[j] for j in range(self.sim_params.ndim)])
+        flux = [torch.stack([rho*u[i] for i in range(self.sim_params.ndim)],dim=0).unsqueeze(1)]
         
-        grad_vars = torch.stack(grad_vars)
-
-        # Calculate all gradients together
-        gradients = self.derivatives.gradient(grad_vars)
-
-        # Initialize the result list
-        result = []
-
-        # Continuity equation
-        result.append(-torch.sum(torch.stack([gradients[i][0] for i in range(self.sim_params.ndim)])))
-
-        # Momentum equations
         for i in range(self.sim_params.ndim):
-            result.append(-torch.sum(torch.stack([gradients[j][i+1] for j in range(self.sim_params.ndim)])))
-
-        # Energy equation
-        result.append(-torch.sum(torch.stack([gradients[i][self.sim_params.ndim+1] for i in range(self.sim_params.ndim)])))
-
-        # Species conservation equations
-        num_species = self.sim_params.nvars - self.sim_params.ndim - 2
-        for i in range(num_species):
-            result.append(-torch.sum(torch.stack([
-                gradients[j][self.sim_params.ndim+2+i] 
-                for j in range(self.sim_params.ndim)
-            ])))
-
-        # Stack the results into a tensor
-        result = torch.stack(result)
+            flux.extend([torch.stack([state.soln[j+1] * u[i] for j in range(self.sim_params.ndim)],dim=0).unsqueeze(1)])
+        flux.extend([torch.stack([state.rho_E * u[i] for i in range(self.sim_params.ndim)],dim=0).unsqueeze(1)])
+        for i in range(self.sim_params.nvars - self.sim_params.ndim - 2):  # For each species
+            flux.extend([torch.stack([state.rho_Ys[i] * u[j] for j in range(self.sim_params.ndim)],dim=0).unsqueeze(1)])
+        
+        flux = torch.cat(flux,dim=1)
+        # Calculate all gradients together
+        result = self.derivatives.divergence(flux)
 
         return result
     

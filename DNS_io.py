@@ -11,7 +11,7 @@ class IO:
         self.state = state
 
     def _get_filename(self):
-        return f"{self.params.output_dir}/time_{self.state.time:13.7e}/{self.params.my_rank:d}.h5"
+        return f"{self.params.output_dir}/time_{self.state.time*self.params.time_ref:13.7e}/{self.params.my_rank:d}.h5"
 
     def write(self):
         filename = self._get_filename()

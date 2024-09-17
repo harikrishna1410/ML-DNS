@@ -92,7 +92,7 @@ class SimulationParameters:
         ##get others from the above
         self.time_ref = self.l_ref/self.a_ref
         self.rho_ref = self.P_ref*self.time_ref**2/self.l_ref**2
-
+        self.P_atm = 101325.0 ##Pa
         self.nvars = self.ndim + 2 + self.num_species
         self.my_rank = np.ravel_multi_index(my_idx, topo)
         ##non-dimensionalise inputs

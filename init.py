@@ -20,7 +20,7 @@ class Initializer:
                 self._init_pressure_pulse()
             else:
                 raise ValueError(f"Unknown initialization case: {case_name}")
-
+        self.sim_state.compute_soln_from_primitives()
     def _init_from_file(self):
         file_path = self.params.get('restart_file')
         if not file_path:
@@ -37,15 +37,14 @@ class Initializer:
         X, Y, Z = torch.meshgrid(x, y, z, indexing='ij')
         
         # Create a pressure pulse in the middle of the domain
-        center = torch.tensor(self.params.get('center', [0.5, 0.5, 0.5]))
+        center = torch.tensor(self.params.case_params.get('center'))
         r = torch.sqrt((X - center[0])**2 + (Y - center[1])**2 + (Z - center[2])**2)
-        pressure = 1.0 + self.params.get('amplitude', 0.1) * torch.exp(-100 * r**2)
+        pressure = 1.0 + self.params.case_params.get('amplitude') * torch.exp(-r**2)
         
         # Compute density from pressure using the function in SimulationState
-        self.sim_state.P = pressure*self.params.get('P_ambient', 1.0)
-        self.sim_state.T = torch.ones((nx, ny, nz))*self.params.get('T_ambient', 1.0)
-        self.sim_state.rho = self.sim_state.compute_density_from_pressure(pressure, self.sim_state.T)
-        
+        self.sim_state.P = pressure*self.params.case_params.get('P_ambient')*self.params.P_atm/self.params.P_ref
+        self.sim_state.T = torch.ones((nx, ny, nz))*self.params.case_params.get('T_ambient')/self.params.T_ref
+        self.sim_state.rho = self.sim_state.compute_density_from_pressure(self.sim_state.P, self.sim_state.T)
         # Initialize velocity components
         self.sim_state.u = torch.zeros((self.sim_state.sim_params.ndim,) + tuple(self.sim_state.sim_params.nl))
         
