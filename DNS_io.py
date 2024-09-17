@@ -23,7 +23,7 @@ class IO:
             f.create_dataset('rho', data=self.state.primitives[0].cpu().numpy()*self.params.rho_ref)
             f.create_dataset('u', data=self.state.primitives[1:self.params.ndim+1].cpu().numpy()*self.params.a_ref)
             f.create_dataset('T', data=self.state.primitives[self.params.ndim+1].cpu().numpy()*self.params.T_ref)
-            f.create_dataset('E', data=self.state.primitives[-2].cpu().numpy()*self.params.rho_ref*self.params.a_ref**2)
+            f.create_dataset('E', data=self.state.primitives[-2].cpu().numpy()*self.params.a_ref**2)
             f.create_dataset('P', data=self.state.primitives[-1].cpu().numpy()*self.params.P_ref)
             f.create_dataset('nl', data=self.params.nl)
 
@@ -36,7 +36,7 @@ class IO:
             self.state.primitives[0] = torch.from_numpy(f['rho'][:]) / self.params.rho_ref
             self.state.primitives[1:self.params.ndim+1] = torch.from_numpy(f['u'][:]) / self.params.a_ref
             self.state.primitives[self.params.ndim+1] = torch.from_numpy(f['T'][:]) / self.params.T_ref
-            self.state.primitives[-2] = torch.from_numpy(f['E'][:]) / (self.params.rho_ref * self.params.a_ref**2)
+            self.state.primitives[-2] = torch.from_numpy(f['E'][:]) / self.params.a_ref**2
             self.state.primitives[-1] = torch.from_numpy(f['P'][:]) / self.params.P_ref
             self.params.nl = tuple(f['nl'][()])
 

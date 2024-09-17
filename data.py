@@ -158,17 +158,21 @@ class SimulationState:
         """
         result = {}
         
+        map_primitives = {
+            0:('rho',self.sim_params.rho_ref),  
+            self.sim_params.ndim+1:('T',self.sim_params.T_ref),
+            self.nvars-2:('E',self.sim_params.a_ref**2),
+            self.nvars-1:('P',self.sim_params.P_ref)
+        }
+        for i,u_name in enumerate(['u','v','w'][:self.sim_params.ndim]):
+            map_primitives[i+1] = (u_name,self.sim_params.a_ref)
+        for i,u_name in enumerate(self.sim_params.num_species):
+            map_primitives[self.sim_params.ndim+2+i] = (u_name,1.0)
         # Compute min and max for primitives
-        for i, var_name in enumerate(['rho', 'u', 'v', 'w', 'T', 'E', 'P']):
-            min_val = torch.min(self.primitives[i]).item()
-            max_val = torch.max(self.primitives[i]).item()
-            result[f'{var_name}_min'] = min_val
-            result[f'{var_name}_max'] = max_val
-        
-        # Compute min and max for solution variables
-        for i, var_name in enumerate(['rho', 'rho_u', 'rho_v', 'rho_w', 'rho_E']):
-            min_val = torch.min(self.soln[i]).item()
-            max_val = torch.max(self.soln[i]).item()
+        for i, var_tuple in map_primitives.items():
+            var_name,ref_val = var_tuple
+            min_val = torch.min(self.primitives[i]).item()*ref_val
+            max_val = torch.max(self.primitives[i]).item()*ref_val
             result[f'{var_name}_min'] = min_val
             result[f'{var_name}_max'] = max_val
         
