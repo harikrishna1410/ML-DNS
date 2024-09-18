@@ -9,10 +9,10 @@
         "P_ambient": 1.0
     },
     "ndim": 1,
-    "nxg": 128,
+    "nxg": 512,
     "nyg": 1,
     "nzg": 1,
-    "num_steps": 10,
+    "num_steps": 1000,
     "npx": 1,
     "npy": 1,
     "npz": 1,
@@ -30,19 +30,23 @@
     },
     "governing_equations":{
         "advection": {
+            "use_advection":true,
             "method":"compressible",
             "use_nn":false
         },
         "diffusion":{
+            "use_diffusion":false,
             "method":"fickian",
             "use_nn":false
         },
         "reaction":{
+            "use_reaction":false,
             "num_species":0,
             "mechanism":"H2-burke.yaml",
             "use_nn":false
         },
         "force":{
+            "use_force":false,
             "use_buoyancy":false,
             "use_nn":false
         }
@@ -54,18 +58,18 @@
     "numerical_methods":{
         "diff_order": 8,
         "integrator":"rk4",
-        "dt": 0.000001,
+        "dt": 0.0001,
         "cfl": 0.5,
         "use_nn": false
     },
     "output": {
         "format": "hdf5",
         "output_dir":"./data/",
-        "frequency": 1
+        "frequency": 100
     },
     "reference":{
         "P_ref":101325, 
-        "l_ref":1e-6,
+        "l_ref":1e-3,
         "a_ref":330,
         "T_ref":300
     }

@@ -74,8 +74,9 @@ class Advection(nn.Module):
             flux.extend([torch.stack([state.rho_Ys[i] * u[j] for j in range(self.sim_params.ndim)],dim=0).unsqueeze(1)])
         
         flux = torch.cat(flux,dim=1)
-        # Calculate all gradients together
-        result = self.derivatives.divergence(flux)
+
+        # Calculate all gradients together and return the negative
+        result = -self.derivatives.divergence(flux)
 
         return result
     

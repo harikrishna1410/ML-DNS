@@ -39,7 +39,7 @@ class NavierStokesSolver:
         # Initialize simulation state object
         self.state = SimulationState(self.params, self.fluid_props)
         # Initialize simulation data object
-        self.data = SimulationData(self.params, self.state)
+        self.data = SimulationData(self.params, self.state,self.grid)
         
         self.halo_exchange = HaloExchange(self.params, self.data, self.comm)
         # Initialize derivatives object with grid
@@ -51,34 +51,41 @@ class NavierStokesSolver:
                                      use_nn=self.params.integrator_use_nn,
                                      neural_integrator=self.params.integrator_nn_model)
         
-        # Initialize Advection object
-        self.advection = Advection(
-            params=self.params,
-            derivatives=self.derivatives,
-            integrator=self.integrator,
-            use_nn=self.params.advection_use_nn,
-            nn_model=None,  
-            method=self.params.advection_method
-        )
+        if self.params.use_advection:
+            # Initialize Advection object
+            self.advection = Advection(
+                params=self.params,
+                derivatives=self.derivatives,
+                integrator=self.integrator,
+                use_nn=self.params.advection_use_nn,
+                nn_model=None,  
+                method=self.params.advection_method
+            )
+        else:
+            self.advection = None
 
-        # Initialize Force object
-        self.force = Force(
-            params=self.params,
-            derivatives=self.derivatives,
-            integrator=self.integrator,
-            use_nn=self.params.force_use_nn,
-            nn_model=None,  
-            use_buoyancy=self.params.use_buoyancy
-        )
+        if self.params.use_force:
+            # Initialize Force object
+            self.force = Force(
+                params=self.params,
+                derivatives=self.derivatives,
+                integrator=self.integrator,
+                use_nn=self.params.force_use_nn,
+                nn_model=None,  
+                use_buoyancy=self.params.use_buoyancy
+            )
+        else:
+            self.force = None
 
         # Initialize RHS object with advection and force
-        self.rhs = RHS(advection=self.advection)#, force=self.force)
+        self.rhs = RHS(advection=self.advection, force=self.force)
 
         self.initializer = Initializer(self.params, self.state, self.grid)
         self.initializer.initialize()
-        print(self.state.min_max())
-        self.io = IO(self.params, self.state)
+        self.io = IO(self.params, self.data)
         self.io.write()
+        if self.rank == 0:
+            self.io.write_grid()
 
     def solve(self):
         """
@@ -86,8 +93,9 @@ class NavierStokesSolver:
         """
         for step in range(self.params.num_steps):
             if(self.rank == 0):
-                print(f"Step {step}")
-                print(self.state.min_max())
+                if(step % 10 == 0):
+                    print(f"Step {step}")
+                    print(self.state.min_max())
             self.state = self.rhs.integrate(self.state)
             self.state.compute_primitives_from_soln()
             

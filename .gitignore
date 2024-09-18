@@ -1,6 +1,5 @@
 *.pyc
-example/pressure_pulse/inputs/input.json
-*.pyc
 *.h5
 *.png
 *.h5
+ml_dns/__pycache__/advection.cpython-310.pyc

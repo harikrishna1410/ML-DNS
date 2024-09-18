@@ -29,7 +29,7 @@ class Derivatives:
         torch.Tensor: Gradient of the input tensor along the specified axis
         """
         if stencil is None:
-            stencil = torch.tensor([-1/280, 4/105, -1/5, 4/5, 0, -4/5, 1/5, -4/105, 1/280])
+            stencil = torch.tensor([1/280, -4/105, 1/5, -4/5, 0, 4/5, -1/5, 4/105, -1/280])
         
         # Stack left and right padding along the input axis
         ##Note that left and right padding alwlays have depth in first dimension
@@ -71,7 +71,7 @@ class Derivatives:
         torch.Tensor: Gradients of the input tensor along the specified axis
         """
         if stencil is None:
-            stencil = torch.tensor([-1/280, 4/105, -1/5, 4/5, 0, -4/5, 1/5, -4/105, 1/280])
+            stencil = torch.tensor([1/280, -4/105, 1/5, -4/5, 0, 4/5, -1/5, 4/105, -1/280])
         
         # Adjust kernel shape for 4D input
         kernel_shape = [1, 1, 1, 1, 1]

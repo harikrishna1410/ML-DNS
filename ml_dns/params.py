@@ -36,14 +36,17 @@ class SimulationParameters:
         # Governing equations parameters
         governing_equations = params.get("governing_equations", {})
         advection = governing_equations.get("advection", {})
+        self.use_advection = advection.get("use_advection", False)
         self.advection_method = advection.get("method", "compressible")
         self.advection_use_nn = advection.get("use_nn", False)
 
         diffusion = governing_equations.get("diffusion", {})
+        self.use_diffusion = diffusion.get("use_diffusion", False)
         self.diffusion_method = diffusion.get("method", "fickian")
         self.diffusion_use_nn = diffusion.get("use_nn", False)
 
         reaction = governing_equations.get("reaction", {})
+        self.use_reaction = reaction.get("use_reaction", False)
         self.num_species = reaction.get("num_species", 0)
         if(self.num_species > 0):
             raise ValueError("number of species > 0")
@@ -51,8 +54,9 @@ class SimulationParameters:
         self.reaction_use_nn = reaction.get("use_nn", False)
 
         force = governing_equations.get("force", {})
+        self.use_force = force.get("use_force", False)
         self.use_buoyancy = force.get("use_buoyancy", False)
-        self.force_use_nn = force.get("use_nn",False)
+        self.force_use_nn = force.get("use_nn", False)
 
         # Fluid properties
         fluid_properties = params.get("fluid_properties", {})
@@ -83,7 +87,7 @@ class SimulationParameters:
             for i in range(3)
         ])
 
-        print(self.nl)
+
         #refernce values
         refs = params.get("reference")
         self.P_ref = refs.get("P_ref") ##Pa
@@ -101,6 +105,15 @@ class SimulationParameters:
             self.domain_extents[ext] /= self.l_ref
         self.MW /= (self.P_ref*self.l_ref*self.time_ref**2)
         self.dt /= self.time_ref
+
+        print("Reference values:")
+        print(f"P_ref: {self.P_ref} Pa")
+        print(f"l_ref: {self.l_ref} m")
+        print(f"a_ref: {self.a_ref} m/s")
+        print(f"T_ref: {self.T_ref} K")
+        print(f"time_ref: {self.time_ref} s")
+        print(f"rho_ref: {self.rho_ref} kg/m^3")
+        print(f"P_atm: {self.P_atm} Pa")
 
 
     def __getitem__(self, key):

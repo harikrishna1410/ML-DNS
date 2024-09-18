@@ -32,8 +32,9 @@ class Grid:
         # Non-dimensionalize x, y, z coordinates and their derivatives
         for dim,dir in enumerate(["x","y","z"][:self.ndim]):
             setattr(self, f"_{dir}", getattr(self, f"_{dir}"))
-            setattr(self, f"_dl_d{dir}", getattr(self, f"_dl_d{dir}"))
-            
+            setattr(self, f"_dl_d{dir}", getattr(self, f"_dl_d{dir}")*self.sim_params.ng[dim]/\
+                    (self.sim_params.domain_extents[dir+"e"]-self.sim_params.domain_extents[dir+"s"]))
+        
         for i, coord in enumerate(['x', 'y', 'z'][:self.ndim]):
             start = params.my_idx[i] * self.nl[i]
             end = None if self.sim_params.my_idx[i] == self.sim_params.np[i] - 1 \

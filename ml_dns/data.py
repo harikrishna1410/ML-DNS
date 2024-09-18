@@ -1,6 +1,7 @@
 import torch
 from .params import SimulationParameters
 from .properties import FluidProperties
+from .grid import Grid
 
 class SimulationState:
     def __init__(self, params:SimulationParameters, props:FluidProperties):
@@ -183,9 +184,10 @@ class SimulationState:
     
 
 class SimulationData:
-    def __init__(self, params : SimulationParameters,state: SimulationState):
+    def __init__(self, params : SimulationParameters,state: SimulationState, grid: Grid):
         self.state = state
         self.sim_params = params
+        self.grid = grid
         ##assuming central difference
         self.halo_depth = params.diff_order // 2
         
