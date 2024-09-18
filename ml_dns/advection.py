@@ -61,8 +61,8 @@ class Advection(nn.Module):
             return self.nn_model(state)
         
         # Access variables directly from SimulationState
-        rho = state.rho
-        u = state.u
+        rho = state.soln[0]
+        u = state.rho_u/state.soln[0]
         
         # Prepare tensor for gradient calculation
         flux = [torch.stack([rho*u[i] for i in range(self.sim_params.ndim)],dim=0).unsqueeze(1)]

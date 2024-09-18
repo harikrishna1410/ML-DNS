@@ -17,7 +17,7 @@ class SimulationState:
     # Initialize properties as variables
     @property
     def rho(self):
-        return self.soln[0]
+        return self.primitives[0]
 
     @rho.setter
     def rho(self, value):
@@ -95,14 +95,14 @@ class SimulationState:
             self.primitives[i+1] = self.soln[i+1] / self.soln[0]
         
         # Compute mass fractions (Ys)
-        for i in range(self.nvars - self.sim_params.ndim - 2):
+        for i in range(self.sim_params.num_species):
             self.primitives[self.sim_params.ndim+2+i] = self.soln[self.sim_params.ndim+2+i] / self.soln[0]
         
         self.primitives[-2] = self.soln[self.sim_params.ndim+1]/self.soln[0]
         # Compute temperature (T)
         self.primitives[self.sim_params.ndim+1] = (self.primitives[-2] \
                                             - 0.5 * torch.sum(self.primitives[1:self.sim_params.ndim+1]**2, dim=0))\
-                                            * (self.Fluid_props.Cv)
+                                            / (self.Fluid_props.Cv)
         self.primitives[-1] = self.compute_pressure(self.primitives[0], self.primitives[self.sim_params.ndim+1])
 
     def compute_soln_from_primitives(self):
@@ -116,7 +116,9 @@ class SimulationState:
         # Compute total energy (rho * E)
         kinetic_energy = 0.5 * torch.sum(self.primitives[1:self.sim_params.ndim+1]**2, dim=0)
         internal_energy = self.primitives[self.sim_params.ndim+1] * self.Fluid_props.Cv
+        
         self.soln[self.sim_params.ndim+1] = self.primitives[0] * (kinetic_energy + internal_energy)
+        
         
         # Compute species densities (rho * Ys)
         for i in range(self.nvars - self.sim_params.ndim - 2):
@@ -161,8 +163,8 @@ class SimulationState:
         map_primitives = {
             0:('rho',self.sim_params.rho_ref),  
             self.sim_params.ndim+1:('T',self.sim_params.T_ref),
-            self.nvars-2:('E',self.sim_params.a_ref**2),
-            self.nvars-1:('P',self.sim_params.P_ref)
+            self.nvars:('E',self.sim_params.a_ref**2),
+            self.nvars+1:('P',self.sim_params.P_ref)
         }
         for i,u_name in enumerate(['u','v','w'][:self.sim_params.ndim]):
             map_primitives[i+1] = (u_name,self.sim_params.a_ref)
@@ -171,8 +173,8 @@ class SimulationState:
         # Compute min and max for primitives
         for i, var_tuple in map_primitives.items():
             var_name,ref_val = var_tuple
-            min_val = torch.min(self.primitives[i]).item()*ref_val
-            max_val = torch.max(self.primitives[i]).item()*ref_val
+            min_val = torch.amin(self.primitives[i]).item()*ref_val
+            max_val = torch.amax(self.primitives[i]).item()*ref_val
             result[f'{var_name}_min'] = min_val
             result[f'{var_name}_max'] = max_val
         
@@ -189,9 +191,9 @@ class SimulationData:
         
         # Initialize halos for all 6 directions (2 per axis)
         self.halos = {}
-        directions = ['x', 'y', 'z'][:self.sim_params.ndim]
-        for i, direction in enumerate(directions):
-            halo_shape = [4, self.state.nvars, self.halo_depth] + [params.nl[j] for j in range(self.sim_params.ndim) if j != i]
+        directions = ['x', 'y', 'z']
+        for i, direction in enumerate(directions[:self.sim_params.ndim]):
+            halo_shape = [4, self.state.nvars, self.halo_depth] + [params.nl[j] for j in range(len(directions)) if j != i]
             self.halos[direction] = torch.zeros(halo_shape)
             setattr(self, f'halo_{direction}lr', self.halos[direction][0])
             setattr(self, f'halo_{direction}rr', self.halos[direction][1])

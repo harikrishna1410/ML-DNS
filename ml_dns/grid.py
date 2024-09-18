@@ -31,8 +31,8 @@ class Grid:
         ##
         # Non-dimensionalize x, y, z coordinates and their derivatives
         for dim,dir in enumerate(["x","y","z"][:self.ndim]):
-            setattr(self, f"_{dir}", getattr(self, f"_{dir}") / self.sim_params.l_ref)
-            setattr(self, f"_dl_d{dir}", getattr(self, f"_dl_d{dir}") * self.sim_params.l_ref)
+            setattr(self, f"_{dir}", getattr(self, f"_{dir}"))
+            setattr(self, f"_dl_d{dir}", getattr(self, f"_dl_d{dir}"))
             
         for i, coord in enumerate(['x', 'y', 'z'][:self.ndim]):
             start = params.my_idx[i] * self.nl[i]

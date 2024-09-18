@@ -72,10 +72,11 @@ class NavierStokesSolver:
         )
 
         # Initialize RHS object with advection and force
-        self.rhs = RHS(advection=self.advection, force=self.force)
+        self.rhs = RHS(advection=self.advection)#, force=self.force)
 
         self.initializer = Initializer(self.params, self.state, self.grid)
         self.initializer.initialize()
+        print(self.state.min_max())
         self.io = IO(self.params, self.state)
         self.io.write()
 

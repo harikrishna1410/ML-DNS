@@ -43,9 +43,6 @@ class RHS(nn.Module):
         if self.force:
             state = self.force.integrate(state)
         
-        # Compute primitives from the updated solution
-        state.compute_primitives_from_soln()
-        
         return state
 
     def toggle_use_nn(self, component):

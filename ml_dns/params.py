@@ -83,6 +83,7 @@ class SimulationParameters:
             for i in range(3)
         ])
 
+        print(self.nl)
         #refernce values
         refs = params.get("reference")
         self.P_ref = refs.get("P_ref") ##Pa

@@ -1,0 +1,6 @@
+*.pyc
+example/pressure_pulse/inputs/input.json
+*.pyc
+*.h5
+*.png
+*.h5

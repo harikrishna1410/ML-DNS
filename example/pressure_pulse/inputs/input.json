@@ -12,7 +12,7 @@
     "nxg": 256,
     "nyg": 256,
     "nzg": 16,
-    "num_steps": 1,
+    "num_steps": 10,
     "npx": 1,
     "npy": 1,
     "npz": 1,
