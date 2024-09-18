@@ -1,0 +1,15 @@
+Metadata-Version: 2.1
+Name: ml-dns
+Version: 0.1.0
+Summary: A machine learning-enhanced Direct Numerical Simulation solver
+Home-page: https://github.com/harikrishna1410/ML-DNS
+Author: Harikrishna Tummalapalli
+Author-email: harikrishnatummalapalli@gmail.com
+Keywords: machine learning,DNS,fluid dynamics,combustion
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+
+# ML-DNS
+This is my attempt to make a reacting CFD solver that can do in-situ machine learning
