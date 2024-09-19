@@ -35,6 +35,9 @@ class SimulationParameters:
         
         # Governing equations parameters
         governing_equations = params.get("governing_equations", {})
+        rhs = governing_equations.get("rhs",{})
+        self.rhs_split_integrate = rhs.get("split_integrate",False)
+
         advection = governing_equations.get("advection", {})
         self.use_advection = advection.get("use_advection", False)
         self.advection_method = advection.get("method", "compressible")

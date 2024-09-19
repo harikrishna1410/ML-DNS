@@ -29,6 +29,9 @@
         "periodic_bc": [true, true, true]
     },
     "governing_equations":{
+        "rhs":{
+            "split_integrate":false
+        },
         "advection": {
             "use_advection":true,
             "method":"compressible",

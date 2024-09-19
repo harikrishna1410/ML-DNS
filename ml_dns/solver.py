@@ -78,7 +78,10 @@ class NavierStokesSolver:
             self.force = None
 
         # Initialize RHS object with advection and force
-        self.rhs = RHS(advection=self.advection, force=self.force)
+        self.rhs = RHS(split_integrate=self.params.rhs_split_integrate
+                       ,integrator=self.integrator
+                       ,advection=self.advection, 
+                       force=self.force)
 
         self.initializer = Initializer(self.params, self.state, self.grid)
         self.initializer.initialize()

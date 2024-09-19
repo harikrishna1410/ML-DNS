@@ -5,6 +5,8 @@ from .data import SimulationState
 
 class RHS(nn.Module):
     def __init__(self, 
+                 split_integrate=False,
+                 integrator=None,
                  advection=None, 
                  reaction=None, 
                  diffusion=None, 
@@ -14,6 +16,14 @@ class RHS(nn.Module):
         self.reaction = reaction
         self.diffusion = diffusion
         self.force = force
+        self.integrator = integrator
+
+        if(split_integrate):
+            self.integrate = self.split_integrate
+        else:
+            if(self.integrator is None):
+                raise ValueError("RHS needs integrator")
+            self.integrate = self.non_split_integrate
 
     def forward(self, state: SimulationState):
         result = torch.zeros_like(state.soln)
@@ -27,7 +37,11 @@ class RHS(nn.Module):
             result += self.force(state)
         return result
 
-    def integrate(self, state: SimulationState):
+    def non_split_integrate(self,state : SimulationState):
+        self.integrator.integrate(state,self.forward)
+        return state
+
+    def split_integrate(self, state: SimulationState):
         """
         Integrate the RHS components forward in time.
         

@@ -37,18 +37,21 @@ class Initializer:
 
     def _init_pressure_pulse(self):
         nx, ny, nz = self.params.nl
-        x, y, z = self.grid.xl()
+        x_tup = self.grid.xl()
         
-        x_norm = (x-self.params.domain_extents["xs"])\
-            /(self.params.domain_extents["xe"]\
-              -self.params.domain_extents["xs"])
-        y_norm = (y-self.params.domain_extents["ys"])\
-            /(self.params.domain_extents["ye"]\
-              -self.params.domain_extents["ys"])
-        z_norm = (z-self.params.domain_extents["zs"])\
-            /(self.params.domain_extents["ze"]\
-              -self.params.domain_extents["zs"])
-        X, Y, Z = torch.meshgrid(x_norm, y_norm, z_norm, indexing='ij')
+        x_norm_list = []
+        for dim, coord in enumerate(["x", "y", "z"][:self.params.ndim]):
+            x = x_tup[dim]
+            x_norm = (x - self.params.domain_extents[f"{coord}s"]) / \
+                     (self.params.domain_extents[f"{coord}e"] - self.params.domain_extents[f"{coord}s"])
+            x_norm_list.append(x_norm)
+
+        X, Y, Z = torch.meshgrid(
+            x_norm_list[0],
+            x_norm_list[1] if self.params.ndim > 1 else torch.tensor([0.0]),
+            x_norm_list[2] if self.params.ndim > 2 else torch.tensor([0.0]),
+            indexing='ij'
+        )
         
         # Create a pressure pulse in the middle of the domain
         center = torch.tensor(self.params.case_params.get('center'))
