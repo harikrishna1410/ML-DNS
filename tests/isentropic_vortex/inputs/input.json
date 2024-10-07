@@ -1,0 +1,75 @@
+{
+    "case": "isentropic_vortex",
+    "restart": false,
+    "restart_file": "restart.h5",
+    "case_params": {
+        "u_inf": 0.0,
+        "v_inf": 0.0
+    },
+    "ndim": 2,
+    "nxg": 256,
+    "nyg": 256,
+    "nzg": 1,
+    "num_steps": 500,
+    "npx": 1,
+    "npy": 1,
+    "npz": 1,
+    "domain_extents": {
+        "xs": -10.0,
+        "xe": 10.0,
+        "ys": -10.0,
+        "ye": 10.0,
+        "zs": 0.0,
+        "ze": 1.0
+    },
+    "grid_stretching_params": {},
+    "boundary_conditions":{
+        "periodic_bc": [true, true, true]
+    },
+    "governing_equations":{
+        "advection": {
+            "use_advection":true,
+            "method":"compressible",
+            "use_nn":false
+        },
+        "diffusion":{
+            "use_diffusion":false,
+            "method":"fickian",
+            "use_nn":false
+        },
+        "reaction":{
+            "use_reaction":false,
+            "num_species":0,
+            "mechanism":"H2-burke.yaml",
+            "use_nn":false
+        },
+        "force":{
+            "use_force":false,
+            "use_buoyancy":false,
+            "use_nn":false
+        }
+    },
+    "fluid_properties":{
+        "gamma": 1.4,
+        "MW": 0.02897
+    },
+    "numerical_methods":{
+        "diff_order": 8,
+        "integrator":"rk4",
+        "dt": 0.00001,
+        "cfl": 0.5,
+        "use_nn": false
+    },
+    "output": {
+        "format": "hdf5",
+        "output_dir":"./data/",
+        "frequency": 100
+    },
+    "reference":{
+        "P_ref":101325, 
+        "l_ref":1.0,
+        "a_ref":330,
+        "T_ref":300
+    }
+}
+

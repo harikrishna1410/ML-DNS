@@ -46,7 +46,7 @@ class Force(nn.Module):
             result[i+1] -= p_gradients[i]  # Negative pressure gradient force on momentum
         
         # Compute p_u
-        p_u = torch.stack([state.P * state.rho_u[i] / state.rho for i in range(self.sim_params.ndim)], dim=0)
+        p_u = torch.stack([state.P * state.rho_u[i] / state.soln[0] for i in range(self.sim_params.ndim)], dim=0)
         result[self.sim_params.ndim+1] -= self.derivatives.divergence(p_u)
 
         return result

@@ -3,12 +3,16 @@ import torch
 from .data import SimulationState
 from .params import SimulationParameters
 from .grid import Grid
+from .properties import FluidProperties
 
 class Initializer:
-    def __init__(self, params: SimulationParameters, sim_state: SimulationState, grid: Grid):
+    def __init__(self, params: SimulationParameters, 
+                 sim_state: SimulationState, 
+                 grid: Grid, props: FluidProperties):
         self.sim_state = sim_state
         self.params = params
         self.grid = grid
+        self.props = props
 
     def initialize(self):
         if self.params.get('restart'):
@@ -22,6 +26,8 @@ class Initializer:
                     self._init_hotspot()
                 else:
                     self._init_hotspot_1d()
+            elif("isentropic_vortex" in case_name):
+                self._init_isentropic_vortex()
             else:
                 raise ValueError(f"Unknown initialization case: {case_name}")
         self.sim_state.compute_soln_from_primitives()
@@ -125,3 +131,32 @@ class Initializer:
         u[0] = 1.0/self.params.a_ref
         self.sim_state.u = u
 
+    def _init_isentropic_vortex(self):
+        if(self.params.ndim != 2):
+            raise ValueError("ndim != 2")
+        x, y = self.grid.xl()
+        X, Y = torch.meshgrid(x, y, indexing='ij')
+        X = X.unsqueeze(-1)
+        Y = Y.unsqueeze(-1)
+        # Create an isentropic vortex
+        center = ((self.params.domain_extents["xs"] + self.params.domain_extents["xe"])/2.0, \
+                (self.params.domain_extents["ys"] + self.params.domain_extents["ye"])/2.0)
+        r = torch.sqrt((X - center[0])**2 + (Y - center[1])**2)
+        gamma = self.params.get('gamma')
+        ##vortex strength 
+        ##all these are non dimensional
+        beta = self.params.case_params.get('beta',1.0)
+        R = self.params.case_params.get('R',1.0)
+        
+        u = 1 - (beta/2/torch.pi)*torch.exp((1-r**2)/2)
+        v = 1 + (beta/2/torch.pi)*torch.exp((1-r**2)/2)
+        T = 1 - ((gamma-1)*beta**2/(8*gamma*torch.pi))*torch.exp(1-r**2)
+        K = 1.0 ###non dimensional
+        # self.props.R = 1.0
+        # self.props.Cv = 1.0/(gamma - 1.0)
+        rho = (self.props.R*T/K)**(1.0/(gamma - 1.0))
+        self.sim_state.u = torch.stack((u,v), dim=0)
+        self.sim_state.T = T
+        self.sim_state.rho = rho
+        self.sim_state.P = self.sim_state.compute_pressure(self.sim_state.rho, self.sim_state.T)
+        

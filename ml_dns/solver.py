@@ -83,7 +83,7 @@ class NavierStokesSolver:
                        ,advection=self.advection, 
                        force=self.force)
 
-        self.initializer = Initializer(self.params, self.state, self.grid)
+        self.initializer = Initializer(self.params, self.state, self.grid,self.fluid_props)
         self.initializer.initialize()
         self.io = IO(self.params, self.data)
         self.io.write()
