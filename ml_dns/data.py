@@ -76,6 +76,10 @@ class SimulationState:
     def E(self):
         return self.primitives[-2]
     
+    @E.setter
+    def E(self, value):
+        self.primitives[-2] = value
+    
     @property
     def Ys(self):
         return self.primitives[self.sim_params.ndim + 2:]

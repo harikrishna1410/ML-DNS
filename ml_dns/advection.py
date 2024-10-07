@@ -68,7 +68,7 @@ class Advection(nn.Module):
         flux = [torch.stack([rho*u[i] for i in range(self.sim_params.ndim)],dim=0).unsqueeze(1)]
         
         for i in range(self.sim_params.ndim):
-            flux.extend([torch.stack([state.soln[j+1] * u[i] for j in range(self.sim_params.ndim)],dim=0).unsqueeze(1)])
+            flux.extend([torch.stack([state.soln[i+1] * u[j] for j in range(self.sim_params.ndim)],dim=0).unsqueeze(1)])
         flux.extend([torch.stack([state.rho_E * u[i] for i in range(self.sim_params.ndim)],dim=0).unsqueeze(1)])
         for i in range(self.sim_params.nvars - self.sim_params.ndim - 2):  # For each species
             flux.extend([torch.stack([state.rho_Ys[i] * u[j] for j in range(self.sim_params.ndim)],dim=0).unsqueeze(1)])

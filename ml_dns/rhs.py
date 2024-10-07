@@ -38,8 +38,7 @@ class RHS(nn.Module):
         return result
 
     def non_split_integrate(self,state : SimulationState):
-        self.integrator.integrate(state,self.forward)
-        return state
+        return self.integrator.integrate(state,self.forward)
 
     def split_integrate(self, state: SimulationState):
         """

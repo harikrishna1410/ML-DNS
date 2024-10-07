@@ -7,6 +7,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.
 
 from ml_dns import NavierStokesSolver
 import matplotlib.pyplot as plt
+import numpy as np
 
 """
     this case tests the advection term in 1D.
@@ -20,13 +21,28 @@ if __name__ == "__main__":
 
     fname = "./inputs/input.json"
     solver = NavierStokesSolver(fname)
+    gamma = solver.fluid_props.gamma
     init_state = copy.deepcopy(solver.state)
     solver.solve()
     final_state = copy.deepcopy(solver.state)
-        
+    # Compute initial mass and energy
+    initial_mass = torch.sum(init_state.rho).item()
+    initial_mom = torch.sum(init_state.rho_u).item()
+    initial_total_energy = torch.sum(init_state.rho_E).item()
     
-    import numpy as np
-
+    print(f"Initial mass: {initial_mass}")
+    print(f"Initial mom: {initial_mom}")
+    print(f"Initial total energy: {initial_total_energy}")
+    
+    # Compute final mass and energy
+    final_mass = torch.sum(final_state.rho).item()
+    final_mom = torch.sum(final_state.rho_u).item()
+    final_total_energy = torch.sum(final_state.rho_E).item()
+    
+    print(f"Final mass: {final_mass}")
+    print(f"Final mom: {final_mom}")
+    print(f"Final total energy: {final_total_energy}")
+        
     # Extract the middle index in the y-direction
     ny_mid = solver.grid.ng[1] // 2
 
@@ -41,7 +57,6 @@ if __name__ == "__main__":
     final_rho = final_state.rho[:, ny_mid, 0]
     initial_P = init_state.P[:, ny_mid, 0]
     final_P = final_state.P[:, ny_mid, 0]
-
     # Extract x-coordinates
     x_coords = solver.grid.xg(0)*solver.params.l_ref
 
@@ -99,3 +114,13 @@ if __name__ == "__main__":
     plt.legend()
     plt.grid(True)
     plt.savefig("pressure_comparison.png", dpi=300)
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(x_coords, initial_P/initial_rho**gamma, label=r'$Initial P/\rho^{\gamma}$', linestyle=':')
+    plt.plot(x_coords, final_P/final_rho**gamma, label=r'$Final P/\rho^{\gamma}$', linestyle='--')
+    plt.xlabel('x')
+    plt.ylabel('Pressure')
+    plt.title('Pressure at y = ny/2')
+    plt.legend()
+    plt.grid(True)
+    plt.savefig("pressure_rho-gamma.png", dpi=300)

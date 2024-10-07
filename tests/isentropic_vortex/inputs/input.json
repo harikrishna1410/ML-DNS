@@ -7,10 +7,10 @@
         "v_inf": 0.0
     },
     "ndim": 2,
-    "nxg": 256,
-    "nyg": 256,
+    "nxg": 512,
+    "nyg": 512,
     "nzg": 1,
-    "num_steps": 500,
+    "num_steps": 100,
     "npx": 1,
     "npy": 1,
     "npz": 1,
@@ -56,7 +56,7 @@
     "numerical_methods":{
         "diff_order": 8,
         "integrator":"rk4",
-        "dt": 0.00001,
+        "dt": 0.000001,
         "cfl": 0.5,
         "use_nn": false
     },

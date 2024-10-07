@@ -138,25 +138,36 @@ class Initializer:
         X, Y = torch.meshgrid(x, y, indexing='ij')
         X = X.unsqueeze(-1)
         Y = Y.unsqueeze(-1)
+    
         # Create an isentropic vortex
-        center = ((self.params.domain_extents["xs"] + self.params.domain_extents["xe"])/2.0, \
-                (self.params.domain_extents["ys"] + self.params.domain_extents["ye"])/2.0)
+        center = torch.tensor([(self.params.domain_extents["xs"] + self.params.domain_extents["xe"])/2.0,
+                           (self.params.domain_extents["ys"] + self.params.domain_extents["ye"])/2.0])
         r = torch.sqrt((X - center[0])**2 + (Y - center[1])**2)
-        gamma = self.params.get('gamma')
-        ##vortex strength 
-        ##all these are non dimensional
-        beta = self.params.case_params.get('beta',1.0)
-        R = self.params.case_params.get('R',1.0)
-        
-        u = 1 - (beta/2/torch.pi)*torch.exp((1-r**2)/2)
-        v = 1 + (beta/2/torch.pi)*torch.exp((1-r**2)/2)
-        T = 1 - ((gamma-1)*beta**2/(8*gamma*torch.pi))*torch.exp(1-r**2)
-        K = 1.0 ###non dimensional
-        # self.props.R = 1.0
-        # self.props.Cv = 1.0/(gamma - 1.0)
-        rho = (self.props.R*T/K)**(1.0/(gamma - 1.0))
-        self.sim_state.u = torch.stack((u,v), dim=0)
+        gamma = self.params.gamma
+        beta = self.params.case_params.get('beta', 5.0)  # Changed default to typical value
+    
+        # Calculate perturbations
+        f = (1 - r**2) / 2
+        du = -beta / (2 * torch.pi) * (Y - center[1]) * torch.exp(f)
+        dv = beta / (2 * torch.pi) * (X - center[0]) * torch.exp(f)
+        dT = -(gamma - 1) * beta**2 / (8 * gamma * torch.pi**2) * torch.exp(2*f)
+    
+        # Set background conditions
+        u_inf = self.params.case_params.get('u_inf', 1.0)
+        v_inf = self.params.case_params.get('v_inf', 1.0)
+        T_inf = self.params.case_params.get('T_inf', 1.0)
+        p_inf = self.params.case_params.get('p_inf', 1.0)
+    
+        # Compute final state
+        u = u_inf + du
+        v = v_inf + dv
+        T = T_inf * (1 + dT)
+        p = p_inf * (T / T_inf)**(gamma / (gamma - 1))
+        rho = p / (self.props.R * T)
+    
+        self.sim_state.u = torch.stack((u, v), dim=0)
         self.sim_state.T = T
         self.sim_state.rho = rho
-        self.sim_state.P = self.sim_state.compute_pressure(self.sim_state.rho, self.sim_state.T)
+        self.sim_state.P = p
+        self.sim_state.E = self.props.Cv*T + 0.5*(u**2+v**2)
         
