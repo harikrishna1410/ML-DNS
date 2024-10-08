@@ -10,6 +10,7 @@ from .data import SimulationData, SimulationState
 import json
 from .rhs import RHS
 from .advection import Advection
+from .diffusion import Diffusion
 from .integrate import Integrator
 from .force import Force
 from .haloexchange import HaloExchange
@@ -76,12 +77,25 @@ class NavierStokesSolver:
             )
         else:
             self.force = None
+        
+        if self.params.use_diffusion:
+            self.diffusion = Diffusion(
+                params=self.params,
+                derivatives=self.derivatives,
+                integrator=self.integrator,
+                fluid_props=self.fluid_props,
+                use_nn=False,
+                nn_model=None,  
+            )
+        else:
+            self.diffusion = None
 
         # Initialize RHS object with advection and force
         self.rhs = RHS(split_integrate=self.params.rhs_split_integrate
                        ,integrator=self.integrator
                        ,advection=self.advection, 
-                       force=self.force)
+                       force=self.force,
+                       diffusion=self.diffusion)
 
         self.initializer = Initializer(self.params, self.state, self.grid,self.fluid_props)
         self.initializer.initialize()

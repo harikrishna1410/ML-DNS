@@ -128,7 +128,7 @@ class Initializer:
         
         # Initialize velocity components
         u = torch.zeros((self.params.ndim,) + tuple(self.params.nl))
-        u[0] = 1.0/self.params.a_ref
+        u[0] = self.params.case_params.get("u_inf",1.0)/self.params.a_ref
         self.sim_state.u = u
 
     def _init_isentropic_vortex(self):

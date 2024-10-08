@@ -49,17 +49,23 @@ class Integrator:
         k1 = rhs(state)
         
         state.soln += 0.5 * self.dt * k1
+        state.compute_primitives_from_soln()
         k2 = rhs(state)
         
         state.soln -= 0.5 * self.dt * k1  # Revert to original state
+        state.compute_primitives_from_soln()
         state.soln += 0.5 * self.dt * k2
+        state.compute_primitives_from_soln()
         k3 = rhs(state)
         
         state.soln -= 0.5 * self.dt * k2  # Revert to original state
+        state.compute_primitives_from_soln()
         state.soln += self.dt * k3
+        state.compute_primitives_from_soln()
         k4 = rhs(state)
         
         state.soln -= self.dt * k3  # Revert to original state
+        state.compute_primitives_from_soln()
         state.soln += (self.dt / 6.0) * (k1 + 2*k2 + 2*k3 + k4)
 
         # Update the simulation time

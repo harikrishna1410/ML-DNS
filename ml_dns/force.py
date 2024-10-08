@@ -33,11 +33,12 @@ class Force(nn.Module):
     def get_use_nn(self) -> bool:
         return self.use_nn
     
-    def forward(self, state: SimulationState):
+    def forward(self, state: SimulationState,result = None):
         if self.use_nn and self.nn_model:
             return self.nn_model(state)
         
         # Initialize the result tensor
+        # if result is None:
         result = torch.zeros_like(state.soln)
         
         # Add pressure gradient term

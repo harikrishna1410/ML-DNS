@@ -152,7 +152,10 @@ class Derivatives:
         """
         if tensor.dim() == 4:
             nv = tensor.size(0)
-            central_diff = self.central_difference_multi
+            if(nv==1):
+                central_diff = self.central_difference
+            else:
+                central_diff = self.central_difference_multi
         elif tensor.dim() == 3:
             nv = 1
             central_diff = self.central_difference
@@ -162,7 +165,7 @@ class Derivatives:
         if(dim):    
             ##req is just a 4 element list
             self.halo_exchange.wait_dim(requests=req,dim=0)
-            df = central_diff(tensor, 
+            df = central_diff(tensor.squeeze(0), 
                             axis=dim,
                             left_padding=self.sim_data.halos[['x', 'y', 'z'][dim]][0][:nv].squeeze(0),
                             right_padding=self.sim_data.halos[['x', 'y', 'z'][dim]][1][:nv].squeeze(0),
@@ -174,11 +177,14 @@ class Derivatives:
             for dim in range(self.grid.ndim):
                 #Here req is 12 element list
                 self.halo_exchange.wait_dim(requests=req,dim=dim)
-                df = central_diff(tensor, 
+                df = central_diff(tensor.squeeze(0), 
                                 axis=dim,
                                 left_padding=self.sim_data.halos[['x', 'y', 'z'][dim]][0][:nv].squeeze(0),
                                 right_padding=self.sim_data.halos[['x', 'y', 'z'][dim]][1][:nv].squeeze(0),
                                 stencil=stencil)
+                
+                if(tensor.dim() == 4 and nv==1):
+                    df = df.unsqueeze(0)
                 ret.append(df)
         self.sim_data.zero_halos()
         return tuple(ret)
