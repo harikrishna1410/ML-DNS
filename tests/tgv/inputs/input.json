@@ -1,0 +1,78 @@
+{
+    "case": "taylor_green_vortex",
+    "restart": false,
+    "restart_file": "restart.h5",
+    "case_params": {
+        "V0": 1.0,
+        "p0": 100.0,
+        "rho0":1.0,
+        "T0":1.0
+    },
+    "ndim": 3,
+    "nxg": 128,
+    "nyg": 128,
+    "nzg": 128,
+    "num_steps": 100,
+    "npx": 2,
+    "npy": 2,
+    "npz": 1,
+    "domain_extents": {
+        "xs": 0.0,
+        "xe": 7.617865246475571e-07,
+        "ys": 0.0,
+        "ye": 7.617865246475571e-07,
+        "zs": 0.0,
+        "ze": 7.617865246475571e-07
+    },
+    "grid_stretching_params": {},
+    "boundary_conditions":{
+        "periodic_bc": [true, true, true]
+    },
+    "governing_equations":{
+        "advection": {
+            "use_advection":true,
+            "method":"compressible",
+            "use_nn":false
+        },
+        "diffusion":{
+            "use_diffusion":true,
+            "method":"fickian",
+            "use_nn":false
+        },
+        "reaction":{
+            "use_reaction":false,
+            "num_species":0,
+            "mechanism":"H2-burke.yaml",
+            "use_nn":false
+        },
+        "force":{
+            "use_force":true,
+            "use_buoyancy":false,
+            "use_nn":false
+        }
+    },
+    "fluid_properties":{
+        "gamma": 1.4,
+        "MW": 0.02897,
+        "Pr": 0.71
+    },
+    "numerical_methods":{
+        "diff_order": 8,
+        "integrator":"rk4",
+        "dt": 1e-7,
+        "cfl": 0.5,
+        "use_nn": false
+    },
+    "output": {
+        "format": "hdf5",
+        "output_dir":"./data/",
+        "frequency": 100
+    },
+    "reference":{
+        "P_ref":101325, 
+        "l_ref":1e-3,
+        "a_ref":330,
+        "T_ref":300
+    }
+}
+

@@ -65,6 +65,7 @@ class SimulationParameters:
         fluid_properties = params.get("fluid_properties", {})
         self.gamma = fluid_properties.get("gamma", 1.4)  # Specific heat ratio
         self.MW = fluid_properties.get("MW", 0.02897)  # defaults to Air MW kg/mol
+        self.Pr = fluid_properties.get("Pr",None) ##defaults to None
 
         # Numerical methods
         numerical_methods = params.get("numerical_methods", {})
@@ -117,6 +118,7 @@ class SimulationParameters:
         print(f"T_ref: {self.T_ref} K")
         print(f"time_ref: {self.time_ref} s")
         print(f"rho_ref: {self.rho_ref} kg/m^3")
+        print(f"Cp_ref: {self.cp_ref} J/(kg.K)")
         print(f"P_atm: {self.P_atm} Pa")
 
 

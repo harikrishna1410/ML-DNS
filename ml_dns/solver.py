@@ -11,7 +11,7 @@ import json
 from .rhs import RHS
 from .advection import Advection
 from .diffusion import Diffusion
-from .integrate import Integrator
+from .integrate import Integrator, compute_timestep
 from .force import Force
 from .haloexchange import HaloExchange
 from .init import Initializer
@@ -46,8 +46,11 @@ class NavierStokesSolver:
         # Initialize derivatives object with grid
         self.derivatives = Derivatives(self.grid, self.halo_exchange, self.data)
 
+        self.initializer = Initializer(self.params, self.state, self.grid,self.fluid_props)
+        self.initializer.initialize()
+        dt = compute_timestep(self.params.cfl,self.grid,self.state,self.fluid_props)
         # Initialize Integrator
-        self.integrator = Integrator(self.params.dt,
+        self.integrator = Integrator(dt,
                                      method=self.params.integrator,
                                      use_nn=self.params.integrator_use_nn,
                                      neural_integrator=self.params.integrator_nn_model)
@@ -97,8 +100,7 @@ class NavierStokesSolver:
                        force=self.force,
                        diffusion=self.diffusion)
 
-        self.initializer = Initializer(self.params, self.state, self.grid,self.fluid_props)
-        self.initializer.initialize()
+
         self.io = IO(self.params, self.data)
         self.io.write()
         if self.rank == 0:

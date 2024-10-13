@@ -11,7 +11,8 @@ class Diffusion(nn.Module):
                 params: SimulationParameters, 
                 derivatives: Derivatives, 
                 integrator: Integrator,
-                fluid_props: FluidProperties, 
+                fluid_props: FluidProperties,
+                species_transport_model="lewis", 
                 nn_model=None, 
                 use_nn=False):
         super().__init__()

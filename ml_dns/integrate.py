@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 from .data import SimulationState
+from .grid import Grid
+from .properties import FluidProperties
 
 class Integrator:
 
@@ -72,3 +74,21 @@ class Integrator:
         state.time += self.dt
         return state
 
+
+##function fo comute timestep based on cfl
+def compute_timestep(cfl, 
+                     grid: Grid, 
+                     state: SimulationState, 
+                     fluid_props: FluidProperties):
+    # Compute the maximum wave speed
+    c = torch.sqrt(fluid_props.gamma * state.P / state.rho)
+    max_speed = torch.max(torch.linalg.norm(state.u,dim=0) + c)
+
+    # Compute the minimum grid spacing
+    min_dx = min([dx.min() for dx in grid.dx()])
+
+    # Compute the timestep
+    dt = cfl * min_dx / max_speed
+
+    return dt
+    

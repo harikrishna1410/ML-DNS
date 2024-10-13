@@ -28,6 +28,8 @@ class Initializer:
                     self._init_hotspot_1d()
             elif("isentropic_vortex" in case_name):
                 self._init_isentropic_vortex()
+            elif case_name == 'taylor_green_vortex':
+                self._init_taylor_green_vortex()
             else:
                 raise ValueError(f"Unknown initialization case: {case_name}")
         self.sim_state.compute_soln_from_primitives()
@@ -170,4 +172,34 @@ class Initializer:
         self.sim_state.rho = rho
         self.sim_state.P = p
         self.sim_state.E = self.props.Cv*T + 0.5*(u**2+v**2)
-        
+
+    def _init_taylor_green_vortex(self):
+        if self.params.ndim != 3:
+            raise ValueError("Taylor-Green vortex requires 3D simulation")
+
+        x, y, z = self.grid.xl()
+        X, Y, Z = torch.meshgrid(x, y, z, indexing='ij')
+
+        # Set parameters
+        L = self.params.domain_extents["xe"] - self.params.domain_extents["xs"]
+        V0 = self.params.case_params.get('V0', 0.07)
+        p0 = self.params.case_params.get('p0', 100.0)
+        rho0 = self.params.case_params.get('rho0', 1.0)
+        T0 = self.params.case_params.get('T0', 1.0)
+
+        # Initialize velocity components
+        u = V0 * torch.sin(2*torch.pi*X/L) * torch.cos(2*torch.pi*Y/L) * torch.cos(2*torch.pi*Z/L)
+        v = -V0 * torch.cos(2*torch.pi*X/L) * torch.sin(2*torch.pi*Y/L) * torch.cos(2*torch.pi*Z/L)
+        w = torch.zeros_like(u)
+
+        # Initialize pressure and density
+        p = p0 + (rho0 * V0**2 / 16) * (torch.cos(4*torch.pi*X/L) + torch.cos(4*torch.pi*Y/L)) * (torch.cos(4*torch.pi*Z/L) + 2)
+
+        T = T0 * torch.ones_like(p)
+
+        # Set state variables
+        self.sim_state.u = torch.stack((u, v, w), dim=0)
+        self.sim_state.P = p
+        self.sim_state.T = T
+        self.sim_state.rho = self.sim_state.compute_density_from_pressure(p,T)
+        self.sim_state.E = self.props.Cv * self.sim_state.T + 0.5 * (u**2 + v**2 + w**2)
