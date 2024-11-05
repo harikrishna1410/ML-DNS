@@ -4,13 +4,13 @@
     "restart_file": "restart.h5",
     "case_params": {
         "center": [0.5, 0.5, 0.5],
-        "amplitude": 0.5, 
+        "amplitude": 1e-7, 
         "T_ambient": 300,
         "P_ambient": 1.0,
         "u_inf":0.0
     },
     "ndim": 1,
-    "nxg": 2048,
+    "nxg": 512,
     "nyg": 1,
     "nzg": 1,
     "num_steps": 5,
