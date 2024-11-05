@@ -1,18 +1,17 @@
 import h5py
 import torch
-from .data import SimulationState
-from .params import SimulationParameters
-from .grid import Grid
-from .properties import FluidProperties
+from .core import *
+from .io import *
 
 class Initializer:
     def __init__(self, params: SimulationParameters, 
-                 sim_state: SimulationState, 
-                 grid: Grid, props: FluidProperties):
+                 sim_state: CompressibleFlowState,
+                 grid: Grid, props: FluidProperties, io: IO):
         self.sim_state = sim_state
         self.params = params
         self.grid = grid
         self.props = props
+        self.io = io
 
     def initialize(self):
         if self.params.get('restart'):
@@ -35,13 +34,10 @@ class Initializer:
         self.sim_state.compute_soln_from_primitives()
        
     def _init_from_file(self):
-        file_path = self.params.get('restart_file')
-        if not file_path:
-            raise ValueError("restart_file must be provided when restart is True")
+        restart_time = self.params.get('restart_time')/self.params.time_ref
+        self.sim_state.set_time(restart_time)
+        self.io.read()
         
-        with h5py.File(file_path, 'r') as f:
-            for var in self.sim_state.variables:
-                self.sim_state[var] = torch.tensor(f[var][:])
 
     def _init_pressure_pulse(self):
         nx, ny, nz = self.params.nl
@@ -66,19 +62,23 @@ class Initializer:
         r = torch.sqrt((X - center[0])**2 + (Y - center[1])**2 + (Z - center[2])**2)
         pressure = 1.0 + self.params.case_params.get('amplitude') * torch.exp(-1000*r**2)
         
+        # Update state using new setter methods
+        P = pressure * self.params.case_params.get('P_ambient') * self.params.P_atm / self.params.P_ref
+        T = torch.ones((nx, ny, nz)) * self.params.case_params.get('T_ambient') / self.params.T_ref
         
-        # Compute density from pressure using the function in SimulationState
-        self.sim_state.P = pressure*self.params.case_params.get('P_ambient')*self.params.P_atm/self.params.P_ref
-        self.sim_state.T = torch.ones((nx, ny, nz))*self.params.case_params.get('T_ambient')/self.params.T_ref
-        self.sim_state.rho = self.sim_state.compute_density_from_pressure(self.sim_state.P, self.sim_state.T)
+        self.sim_state.set_primitive_var(P, 'P')
+        self.sim_state.set_primitive_var(T, 'T')
+        rho = self.sim_state.compute_density_from_pressure(P, T)
+        self.sim_state.set_primitive_var(rho, 'rho')
         
         # Initialize velocity components
         u = torch.zeros((self.params.ndim,) + tuple(self.params.nl))
-        self.sim_state.u = u
-        if(self.params.num_species > 0):
-            self.sim_state.Ys = torch.ones((self.sim_state.sim_params.num_species,) 
-                                       + tuple(self.sim_state.sim_params.nl))/self.params.num_species
-    
+        self.sim_state.set_primitive_var(u, 'u')
+        
+        if self.params.num_species > 0:
+            Ys = torch.ones((self.sim_state.sim_params.num_species,) + tuple(self.sim_state.sim_params.nl)) / self.params.num_species
+            self.sim_state.set_primitive_var(Ys, 'Y')
+
     ##a hotspot with zero pressure gradient
     def _init_hotspot(self):
         if(self.params.ndim > 2):
@@ -97,15 +97,18 @@ class Initializer:
         r = torch.sqrt((X - center[0])**2 + (Y - center[1])**2).unsqueeze(-1)
         temperature = 1.0 + self.params.case_params.get('amplitude') * torch.exp(-1000*r**2)
         
-        # Compute density from pressure using the function in SimulationState
-        self.sim_state.P = torch.ones_like(r)*self.params.case_params.get('P_ambient')*self.params.P_atm/self.params.P_ref
-        self.sim_state.T = temperature*self.params.case_params.get('T_ambient')/self.params.T_ref
-        self.sim_state.rho = self.sim_state.compute_density_from_pressure(self.sim_state.P, self.sim_state.T)
+        P = torch.ones_like(r) * self.params.case_params.get('P_ambient') * self.params.P_atm / self.params.P_ref
+        T = temperature * self.params.case_params.get('T_ambient') / self.params.T_ref
+        
+        self.sim_state.set_primitive_var(P, 'P')
+        self.sim_state.set_primitive_var(T, 'T')
+        rho = self.sim_state.compute_density_from_pressure(P, T)
+        self.sim_state.set_primitive_var(rho, 'rho')
         
         # Initialize velocity components
         u = torch.zeros((self.params.ndim,) + tuple(self.params.nl))
         u[0] = 1.0/self.params.a_ref
-        self.sim_state.u = u
+        self.sim_state.set_primitive_var(u, 'u')
 
     ##a hotspot with zero pressure gradient
     def _init_hotspot_1d(self):
@@ -116,22 +119,26 @@ class Initializer:
             /(self.params.domain_extents["xe"]\
               -self.params.domain_extents["xs"])
         
-        # Create a pressure pulse in the middle of the domain
+        # Create a temperature hotspot in the middle of the domain
         center = torch.tensor(self.params.case_params.get('center'))
         r = (x_norm - center[0]).unsqueeze(-1).unsqueeze(-1)
         temperature = (1.0 + self.params.case_params.get('amplitude') \
                        * torch.exp(-1000 * r**2.0))
-                       #* torch.sin(x_norm*torch.pi*2.0)).unsqueeze(-1).unsqueeze(-1)
         
-        # Compute density from pressure using the function in SimulationState
-        self.sim_state.P = torch.ones_like(r)*self.params.case_params.get('P_ambient')*self.params.P_atm/self.params.P_ref
-        self.sim_state.T = temperature*self.params.case_params.get('T_ambient')/self.params.T_ref
-        self.sim_state.rho = self.sim_state.compute_density_from_pressure(self.sim_state.P, self.sim_state.T)
+        # Set pressure and temperature
+        P = torch.ones_like(r) * self.params.case_params.get('P_ambient') * self.params.P_atm / self.params.P_ref
+        # T = torch.ones_like(r)
+        T = temperature * self.params.case_params.get('T_ambient') / self.params.T_ref
+        
+        self.sim_state.set_primitive_var(P, 'P')
+        self.sim_state.set_primitive_var(T, 'T')
+        rho = self.sim_state.compute_density_from_pressure(P, T)
+        self.sim_state.set_primitive_var(rho, 'rho')
         
         # Initialize velocity components
         u = torch.zeros((self.params.ndim,) + tuple(self.params.nl))
         u[0] = self.params.case_params.get("u_inf",1.0)/self.params.a_ref
-        self.sim_state.u = u
+        self.sim_state.set_primitive_var(u, 'u')
 
     def _init_isentropic_vortex(self):
         if(self.params.ndim != 2):
@@ -167,10 +174,10 @@ class Initializer:
         p = p_inf * (T / T_inf)**(gamma / (gamma - 1))
         rho = p / (self.props.R * T)
     
-        self.sim_state.u = torch.stack((u, v), dim=0)
-        self.sim_state.T = T
-        self.sim_state.rho = rho
-        self.sim_state.P = p
+        self.sim_state.set_primitive_var(torch.stack((u, v), dim=0), 'u')
+        self.sim_state.set_primitive_var(T, 'T')
+        self.sim_state.set_primitive_var(rho, 'rho')
+        self.sim_state.set_primitive_var(p, 'P')
         self.sim_state.E = self.props.Cv*T + 0.5*(u**2+v**2)
 
     def _init_taylor_green_vortex(self):
@@ -198,8 +205,8 @@ class Initializer:
         T = T0 * torch.ones_like(p)
 
         # Set state variables
-        self.sim_state.u = torch.stack((u, v, w), dim=0)
-        self.sim_state.P = p
-        self.sim_state.T = T
-        self.sim_state.rho = self.sim_state.compute_density_from_pressure(p,T)
+        self.sim_state.set_primitive_var(torch.stack((u, v, w), dim=0), 'u')
+        self.sim_state.set_primitive_var(p, 'P')
+        self.sim_state.set_primitive_var(T, 'T')
+        self.sim_state.set_primitive_var(self.sim_state.compute_density_from_pressure(p,T), 'rho')
         self.sim_state.E = self.props.Cv * self.sim_state.T + 0.5 * (u**2 + v**2 + w**2)

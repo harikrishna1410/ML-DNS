@@ -3,9 +3,9 @@ import os
 import torch
 
 # Add the parent directory of ml_dns to the Python path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..',"..")))
 
-from ml_dns import NavierStokesSolver
+from ml_dns import Solver
 import matplotlib.pyplot as plt
 
 """
@@ -19,13 +19,13 @@ if __name__ == "__main__":
     import copy
 
     fname = "./inputs/input.json"
-    solver = NavierStokesSolver(fname)
-    initial_T = solver.state.T.clone()
-    u = torch.amax(solver.state.u).item()
-    init_peak_sim = solver.grid.xg(0)[torch.argmax(solver.state.T)]
+    solver = Solver(fname)
+    initial_T = solver.state.get_primitive_var("P").clone()
+    u = torch.amax(solver.state.get_primitive_var("u")).item()
+    init_peak_sim = solver.grid.xg(0)[torch.argmax(solver.state.get_primitive_var("T"))]
     solver.solve()
-    final_peak_sim = solver.grid.xg(0)[torch.argmax(solver.state.T)]
-    final_T_simulated = solver.state.T
+    final_peak_sim = solver.grid.xg(0)[torch.argmax(solver.state.get_primitive_var("T"))]
+    final_T_simulated = solver.state.get_primitive_var("P")
     ##compute the final state
     xs = solver.params.domain_extents["xs"]
     xe = solver.params.domain_extents["xe"]

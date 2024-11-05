@@ -1,14 +1,12 @@
 import torch
 import torch.nn.functional as F
 from .haloexchange import HaloExchange
-from .grid import Grid
-from .data import SimulationData
+from ..core import Grid, SimulationData
 
 class Derivatives:
-    def __init__(self, grid : Grid, halo_exchange: HaloExchange,sim_data : SimulationData):
+    def __init__(self, grid : Grid, halo_exchange: HaloExchange):
         self.grid = grid
         self.halo_exchange = halo_exchange
-        self.sim_data = sim_data
 
     def central_difference(self, tensor, axis, left_padding, right_padding, stencil=None):
         """
@@ -128,11 +126,11 @@ class Derivatives:
             self.halo_exchange.wait_dim(requests=req,dim=0)
             df = central_diff(tensor[dim], 
                               axis=dim,
-                              left_padding=self.sim_data.halos[['x', 'y', 'z'][dim]][0][:nv].squeeze(0),
-                              right_padding=self.sim_data.halos[['x', 'y', 'z'][dim]][1][:nv].squeeze(0),
+                              left_padding=self.halo_exchange.halos[['x', 'y', 'z'][dim]][0][:nv].squeeze(0),
+                              right_padding=self.halo_exchange.halos[['x', 'y', 'z'][dim]][1][:nv].squeeze(0),
                               stencil=stencil)
             ret.append(df)
-        self.sim_data.zero_halos()
+        self.halo_exchange.zero_halos()
         return sum(ret)
     
     def gradient(self, tensor, stencil=None,dim=None):
@@ -167,10 +165,10 @@ class Derivatives:
             self.halo_exchange.wait_dim(requests=req,dim=0)
             df = central_diff(tensor.squeeze(0), 
                             axis=dim,
-                            left_padding=self.sim_data.halos[['x', 'y', 'z'][dim]][0][:nv].squeeze(0),
-                            right_padding=self.sim_data.halos[['x', 'y', 'z'][dim]][1][:nv].squeeze(0),
+                            left_padding=self.halo_exchange.halos[['x', 'y', 'z'][dim]][0][:nv].squeeze(0),
+                            right_padding=self.halo_exchange.halos[['x', 'y', 'z'][dim]][1][:nv].squeeze(0),
                             stencil=stencil)
-            self.sim_data.zero_halos()
+            self.halo_exchange.zero_halos()
             return df
         else:
             ret = []
@@ -179,12 +177,12 @@ class Derivatives:
                 self.halo_exchange.wait_dim(requests=req,dim=dim)
                 df = central_diff(tensor.squeeze(0), 
                                 axis=dim,
-                                left_padding=self.sim_data.halos[['x', 'y', 'z'][dim]][0][:nv].squeeze(0),
-                                right_padding=self.sim_data.halos[['x', 'y', 'z'][dim]][1][:nv].squeeze(0),
+                                left_padding=self.halo_exchange.halos[['x', 'y', 'z'][dim]][0][:nv].squeeze(0),
+                                right_padding=self.halo_exchange.halos[['x', 'y', 'z'][dim]][1][:nv].squeeze(0),
                                 stencil=stencil)
                 
                 if(tensor.dim() == 4 and nv==1):
                     df = df.unsqueeze(0)
                 ret.append(df)
-        self.sim_data.zero_halos()
+        self.halo_exchange.zero_halos()
         return tuple(ret)

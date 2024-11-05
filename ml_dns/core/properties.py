@@ -59,3 +59,7 @@ class FluidProperties:
             k_nd = mu_nd*self.Cp/self.Pr
 
         return k_nd
+    
+    ##expects a dimensional temperature
+    def calculate_species_diffusivity(self, T):
+        return torch.zeros_like(T)

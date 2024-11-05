@@ -1,8 +1,6 @@
 import torch
 import torch.nn as nn
-from .data import SimulationState
-from .grid import Grid
-from .properties import FluidProperties
+from ..core import BaseSimulationState, CompressibleFlowState, Grid
 
 class Integrator:
 
@@ -17,7 +15,7 @@ class Integrator:
         else:
             raise ValueError(f"Unsupported integration method: {method}")
 
-    def integrate(self, state: SimulationState, rhs):
+    def integrate(self, state: BaseSimulationState, rhs):
         return self.integrator(state, rhs)
 
     def set_dt(self, dt):
@@ -35,60 +33,45 @@ class Integrator:
     def toggle_use_nn(self):
         self.use_nn = not self.use_nn
 
-    def euler(self, state: SimulationState, rhs):
+    def euler(self, state: BaseSimulationState, rhs):
         if self.use_nn and self.neural_integrator:
             return self.neural_integrator(state)
-        state.soln += self.dt * rhs(state)
-
-        state.time += self.dt
-        
+        state.update_solution(self.dt * rhs(state))
+        state.update_time(self.dt)
         return state
 
-    def rk4(self, state: SimulationState, rhs):
+    def rk4(self, state: BaseSimulationState, rhs):
         if self.use_nn and self.neural_integrator:
             return self.neural_integrator(state)
+        
+        # Store initial solution
+        initial_soln = state.get_solution().clone()
         
         k1 = rhs(state)
         
-        state.soln += 0.5 * self.dt * k1
+        state.update_solution(0.5 * self.dt * k1)
         state.compute_primitives_from_soln()
         k2 = rhs(state)
         
-        state.soln -= 0.5 * self.dt * k1  # Revert to original state
+        # Reset to initial solution
+        state.set_solution(initial_soln.clone())
         state.compute_primitives_from_soln()
-        state.soln += 0.5 * self.dt * k2
+        state.update_solution(0.5 * self.dt * k2)
         state.compute_primitives_from_soln()
         k3 = rhs(state)
         
-        state.soln -= 0.5 * self.dt * k2  # Revert to original state
+        # Reset to initial solution
+        state.set_solution(initial_soln.clone())
         state.compute_primitives_from_soln()
-        state.soln += self.dt * k3
+        state.update_solution(self.dt * k3)
         state.compute_primitives_from_soln()
         k4 = rhs(state)
         
-        state.soln -= self.dt * k3  # Revert to original state
+        # Reset to initial solution and apply final update
+        state.set_solution(initial_soln.clone())
         state.compute_primitives_from_soln()
-        state.soln += (self.dt / 6.0) * (k1 + 2*k2 + 2*k3 + k4)
+        state.update_solution((self.dt / 6.0) * (k1 + 2*k2 + 2*k3 + k4))
 
         # Update the simulation time
-        state.time += self.dt
+        state.update_time(self.dt)
         return state
-
-
-##function fo comute timestep based on cfl
-def compute_timestep(cfl, 
-                     grid: Grid, 
-                     state: SimulationState, 
-                     fluid_props: FluidProperties):
-    # Compute the maximum wave speed
-    c = torch.sqrt(fluid_props.gamma * state.P / state.rho)
-    max_speed = torch.max(torch.linalg.norm(state.u,dim=0) + c)
-
-    # Compute the minimum grid spacing
-    min_dx = min([dx.min() for dx in grid.dx()])
-
-    # Compute the timestep
-    dt = cfl * min_dx / max_speed
-
-    return dt
-    

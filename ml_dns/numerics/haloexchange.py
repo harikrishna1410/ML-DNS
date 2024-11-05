@@ -1,11 +1,9 @@
 import torch
-from .data import SimulationData
+from ..core import SimulationData,SimulationParameters
 from mpi4py import MPI
-from .params import SimulationParameters
 
 class HaloExchange:
-    def __init__(self, params: SimulationParameters , data: SimulationData, comm):
-        self.data = data
+    def __init__(self, params: SimulationParameters , comm):
         self.comm = comm
         self.rank = comm.Get_rank()
         self.size = comm.Get_size()
@@ -13,8 +11,24 @@ class HaloExchange:
         self.ndim = params.ndim
         self.np = params.np
         self.my_pidx = params.my_idx
-        self.halo_depth = self.data.halo_depth
+        ##assuming central difference
+        self.halo_depth = params.diff_order // 2
+        # Initialize halos for all 6 directions (2 per axis)
+        self.halos = {}
+        directions = ['x', 'y', 'z']
+        for i, direction in enumerate(directions[:self.sim_params.ndim]):
+            halo_shape = [4, self.sim_params.nvars, self.halo_depth] + [params.nl[j] for j in range(len(directions)) if j != i]
+            self.halos[direction] = torch.zeros(halo_shape)
+            setattr(self, f'halo_{direction}lr', self.halos[direction][0])
+            setattr(self, f'halo_{direction}rr', self.halos[direction][1])
+            setattr(self, f'halo_{direction}ls', self.halos[direction][2])
+            setattr(self, f'halo_{direction}rs', self.halos[direction][3])
         self.neighbors = self._get_neighbors()
+
+
+    def zero_halos(self):
+        for direction in self.halos:
+            self.halos[direction].zero_()
 
     def _get_neighbors(self):
         neighbors = {}
@@ -49,18 +63,18 @@ class HaloExchange:
 
         # Determine which halos to use based on dimension
         if dim == 0:
-            left_halo_r, right_halo_r = self.data.halo_xlr[:nv], self.data.halo_xrr[:nv]
-            left_halo_s, right_halo_s = self.data.halo_xls[:nv], self.data.halo_xrs[:nv]
+            left_halo_r, right_halo_r = self.halo_xlr[:nv], self.halo_xrr[:nv]
+            left_halo_s, right_halo_s = self.halo_xls[:nv], self.halo_xrs[:nv]
             right_halo_s[:,:,:,:] = f[:,-self.halo_depth:,:,:]
             left_halo_s[:,:,:,:] = f[:,:self.halo_depth,:,:]
         elif dim == 1:
-            left_halo_r, right_halo_r = self.data.halo_ylr[:nv], self.data.halo_yrr[:nv]
-            left_halo_s, right_halo_s = self.data.halo_yls[:nv], self.data.halo_yrs[:nv]
+            left_halo_r, right_halo_r = self.halo_ylr[:nv], self.halo_yrr[:nv]
+            left_halo_s, right_halo_s = self.halo_yls[:nv], self.halo_yrs[:nv]
             right_halo_s[:,:,:,:] = f[:,:,-self.halo_depth:,:].permute(0,2,1,3)
             left_halo_s[:,:,:,:] = f[:,:,:self.halo_depth,:].permute(0,2,1,3)
         else:  # dim == 2
-            left_halo_r, right_halo_r = self.data.halo_zlr[:nv], self.data.halo_zrr[:nv]
-            left_halo_s, right_halo_s = self.data.halo_zls[:nv], self.data.halo_zrs[:nv]
+            left_halo_r, right_halo_r = self.halo_zlr[:nv], self.halo_zrr[:nv]
+            left_halo_s, right_halo_s = self.halo_zls[:nv], self.halo_zrs[:nv]
             right_halo_s[:,:,:,:] = f[:,:,:,-self.halo_depth:].permute(0,3,1,2)
             left_halo_s[:,:,:,:] = f[:,:,:,:self.halo_depth].permute(0,3,1,2)
 

@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
-from .neural_network_model import NeuralNetworkModel
-from .params import SimulationParameters
+from ..ml import NeuralNetworkModel
+from ..core import SimulationParameters
 
 class Reaction(nn.Module):
     def __init__(self, nn_model=None, use_nn=False):

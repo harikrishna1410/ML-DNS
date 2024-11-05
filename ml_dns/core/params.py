@@ -8,7 +8,8 @@ class SimulationParameters:
         
         self.case = params.get("case", "pressure_pulse")
         self.restart = params.get("restart", False)
-        self.restart_file = params.get("restart_file", "restart.h5")
+        self.restart_file = params.get("restart_time", 0.0)
+        self.fluidtype = params.get("fluidtype","Compressible_Newtonian").lower()
         self.case_params = params.get("case_params", {})
 
         # number of dimensions
@@ -71,7 +72,7 @@ class SimulationParameters:
         numerical_methods = params.get("numerical_methods", {})
         self.diff_order = numerical_methods.get("diff_order", 8)
         self.stencil = numerical_methods.get("stencil",None)
-        self.integrator = numerical_methods.get("integrator", "euler")
+        self.integrator = numerical_methods.get("integrator", "rk4")
         self.dt = numerical_methods.get("dt", 0.001)
         self.cfl = numerical_methods.get("cfl", 0.5)
         self.integrator_use_nn = numerical_methods.get("use_nn", False)
