@@ -41,7 +41,6 @@ class Force(nn.Module):
         
         for i in range(self.sim_params.ndim):
             result[i+1] -= p_gradients[i]  # Negative pressure gradient force on momentum
-            print("max,min:",torch.amax(result[i+1]),torch.amin(result[i+1]))
         
         result[self.sim_params.ndim+1] -= self.derivatives.divergence(P*u)
 

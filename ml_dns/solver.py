@@ -55,8 +55,8 @@ class Solver:
         self.io.write()
         if self.rank == 0:
             self.io.write_grid()
-        if self.params.fluidtype == "Compressible_Newtonian":
-            dt = compute_timestep(self.params.cfl,self.grid, self.state,self.fluid_props)
+        if self.params.fluidtype == "compressible_newtonian":
+            dt = self.compute_timestep(self.params.cfl,self.grid, self.state)
         else:
             dt = self.params.dt
         # Initialize Integrator
@@ -114,7 +114,7 @@ class Solver:
         for step in range(self.params.num_steps):
             if(self.rank == 0):
                 if(step % 10 == 0):
-                    print(f"Step {step}")
+                    print(f"Step {step} dt {self.integrator.dt*self.params.time_ref}")
                     print(self.state.min_max_primitives())
             self.state = self.integrator.integrate(self.state,self.rhs)
             self.state.compute_primitives_from_soln()
@@ -129,7 +129,7 @@ class Solver:
 
     
         ##function fo comute timestep based on cfl
-    def compute_timestep(cfl, 
+    def compute_timestep(self,cfl, 
                          grid: Grid, 
                          state: CompressibleFlowState):
         # Compute the maximum wave speed

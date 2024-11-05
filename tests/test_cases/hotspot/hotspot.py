@@ -20,12 +20,22 @@ if __name__ == "__main__":
 
     fname = "./inputs/input.json"
     solver = Solver(fname)
-    initial_T = solver.state.get_primitive_var("P").clone()
+    
+    # Store initial state
+    initial_T = solver.state.get_primitive_var("T").clone()
+    initial_P = solver.state.get_primitive_var("P").clone()
+    initial_rho = solver.state.get_primitive_var("rho").clone()
+    
     u = torch.amax(solver.state.get_primitive_var("u")).item()
     init_peak_sim = solver.grid.xg(0)[torch.argmax(solver.state.get_primitive_var("T"))]
     solver.solve()
     final_peak_sim = solver.grid.xg(0)[torch.argmax(solver.state.get_primitive_var("T"))]
-    final_T_simulated = solver.state.get_primitive_var("P")
+    
+    # Get final simulated state
+    final_T_simulated = solver.state.get_primitive_var("T")
+    final_P_simulated = solver.state.get_primitive_var("P")
+    final_rho_simulated = solver.state.get_primitive_var("rho")
+    
     ##compute the final state
     xs = solver.params.domain_extents["xs"]
     xe = solver.params.domain_extents["xe"]
@@ -39,14 +49,36 @@ if __name__ == "__main__":
     print("max error in T:",torch.amax(torch.abs(final_T_simulated.squeeze()-final_T_computed.squeeze()))\
           /torch.amax(torch.abs(final_T_computed)))
     
-    plt.figure(figsize=(10, 6))
-    # Plot initial state
-    plt.plot(solver.grid.xg(0), initial_T.squeeze(), label='Initial T', linestyle=':')
-    plt.plot(solver.grid.xg(0), final_T_computed.squeeze(), label='Computed T')
-    plt.plot(solver.grid.xg(0), final_T_simulated.squeeze(), label='Simulated T', linestyle='--')
-    plt.xlabel('x')
-    plt.ylabel('Temperature')
-    plt.title('Computed vs Simulated Temperature')
-    plt.legend()
-    plt.grid(True)
-    plt.savefig("T.png",dpi=300)
+    # Create subplots for T, P, and rho
+    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10, 12))
+    
+    # Plot Temperature
+    ax1.plot(solver.grid.xg(0), initial_T.squeeze(), label='Initial', linestyle=':')
+    ax1.plot(solver.grid.xg(0), final_T_computed.squeeze(), label='Computed')
+    ax1.plot(solver.grid.xg(0), final_T_simulated.squeeze(), label='Simulated', linestyle='--')
+    ax1.set_xlabel('x')
+    ax1.set_ylabel('Temperature')
+    ax1.set_title('Temperature Evolution')
+    ax1.legend()
+    ax1.grid(True)
+    
+    # Plot Pressure
+    ax2.plot(solver.grid.xg(0), initial_P.squeeze(), label='Initial', linestyle=':')
+    ax2.plot(solver.grid.xg(0), final_P_simulated.squeeze(), label='Simulated', linestyle='--')
+    ax2.set_xlabel('x')
+    ax2.set_ylabel('Pressure')
+    ax2.set_title('Pressure Evolution')
+    ax2.legend()
+    ax2.grid(True)
+    
+    # Plot Density
+    ax3.plot(solver.grid.xg(0), initial_rho.squeeze(), label='Initial', linestyle=':')
+    ax3.plot(solver.grid.xg(0), final_rho_simulated.squeeze(), label='Simulated', linestyle='--')
+    ax3.set_xlabel('x')
+    ax3.set_ylabel('Density')
+    ax3.set_title('Density Evolution')
+    ax3.legend()
+    ax3.grid(True)
+    
+    plt.tight_layout()
+    plt.savefig("flow_variables.png", dpi=300)

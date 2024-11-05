@@ -18,16 +18,12 @@ class RHS(nn.Module):
     def forward(self, state: BaseSimulationState):
         result = torch.zeros_like(state.get_solution())
         if self.advection:
-            print("advection")
             result += self.advection(state)
         if self.reaction:
-            print("reaction")
             result += self.reaction(state)
         if self.diffusion:
-            print("diffusion")
             result += self.diffusion(state)
         if self.force:
-            print("force")
             result += self.force(state)
         return result
 
